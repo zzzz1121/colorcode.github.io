@@ -1,0 +1,3097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Code</title>
+<!-- 引入 Google Fonts: Orbitron（科技感标题字体）和 Rajdhani（正文字体） -->
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== 全局重置 ===== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+/* ===== CSS 自定义变量（主题色 & 布局尺寸）===== */
+/* 🔑 【修改颜色】：修改这里的 --red / --blue / --yellow 等变量即可改变全局主题色 */
+:root{
+  --red:#ff3b5c;--blue:#3b8bff;--yellow:#ffd93b;          /* 三原色 */
+  --purple:#b850ff;--orange:#ff8c3b;--green:#3bff8b;       /* 混合色 */
+  --bg:#06060e;--surface:rgba(255,255,255,.04);             /* 背景 & 表面色 */
+  --glass:rgba(255,255,255,.055);--glass2:rgba(255,255,255,.09);  /* 毛玻璃效果 */
+  --brd:rgba(255,255,255,.09);--brd2:rgba(255,255,255,.16);      /* 边框色 */
+  --tx:#d0d0e4;--dim:#5a5a7a;--bright:#fff;                      /* 文字色 */
+  --cell:80px;--gap:3px;                                          /* 棋盘格尺寸 & 间距 */
+}
+
+/* ===== 全局 body & html 样式 ===== */
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:'Rajdhani',sans-serif}
+body{display:flex;align-items:center;justify-content:center}
+
+/* 背景 canvas（粒子动画层） */
+canvas#bg-cv{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ===== 屏幕切换容器（每个 .scr 是一个全屏页面）===== */
+.scr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;transition:opacity .5s,transform .5s}
+.scr.hidden{opacity:0;pointer-events:none;transform:scale(.97)}  /* 隐藏时淡出+缩小 */
+
+/* ===== 标题 Logo 渐变文字 ===== */
+.logo{font-family:'Orbitron',sans-serif;font-size:clamp(38px,7vw,68px);font-weight:900;letter-spacing:.14em;
+background:linear-gradient(135deg,var(--red),var(--purple),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+filter:drop-shadow(0 0 36px rgba(184,80,255,.22));line-height:1.1}
+
+/* 副标题 */
+.sub{font-size:14px;letter-spacing:.9em;text-transform:uppercase;color:var(--dim);margin:6px 0 0 .9em}
+
+/* 装饰分割线 */
+.deco{width:180px;height:1px;margin:24px auto 44px;background:linear-gradient(90deg,transparent,var(--brd),transparent)}
+
+/* ===== 关卡选择卡片 ===== */
+.cards{display:flex;gap:18px;margin-bottom:32px;flex-wrap:wrap;justify-content:center}
+.card{width:188px;padding:20px 16px;border-radius:14px;background:var(--glass);border:1px solid var(--brd);
+cursor:pointer;text-align:center;transition:all .3s;position:relative;overflow:hidden;backdrop-filter:blur(10px)}
+.card:hover{transform:translateY(-5px);border-color:var(--brd2);box-shadow:0 14px 44px rgba(0,0,0,.45)}
+.card .ic{font-size:18px;opacity:.7;letter-spacing:3px;line-height:1.4}
+.card h3{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--bright);margin-bottom:3px}
+.card p{font-size:12px;color:var(--dim);line-height:1.35}
+.card .gl{font-size:10px;color:var(--dim);letter-spacing:3px;margin-top:7px;font-family:'Orbitron',sans-serif}
+/* 卡片顶部渐变装饰条（hover 时显示） */
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+background:linear-gradient(90deg,var(--red),var(--purple),var(--blue));opacity:0;transition:opacity .3s}
+.card:hover::before{opacity:1}
+
+/* HOW TO PLAY 按钮 */
+.hbtn{margin-top:6px;padding:9px 28px;border-radius:9px;border:1px solid var(--brd);background:transparent;
+color:var(--dim);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;cursor:pointer;transition:all .3s}
+.hbtn:hover{color:var(--bright);border-color:var(--brd2)}
+
+/* ===== 弹窗遮罩 & 模态框 ===== */
+.ov{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.84);display:flex;align-items:center;justify-content:center;
+backdrop-filter:blur(6px);transition:opacity .4s}
+.ov.hidden{opacity:0;pointer-events:none}
+.modal{width:540px;max-width:92vw;max-height:82vh;overflow-y:auto;padding:32px;background:#10102a;border:1px solid var(--brd);border-radius:18px}
+.modal h2{font-family:'Orbitron',sans-serif;font-size:20px;margin-bottom:16px;
+background:linear-gradient(135deg,var(--red),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.modal p{font-size:13px;line-height:1.65;color:var(--dim);margin-bottom:10px}
+.modal .hl{color:var(--bright);font-weight:600}  /* 高亮文字 */
+
+/* 教程中的模块示例行 */
+.mod-row{display:flex;gap:14px;margin:14px 0;flex-wrap:wrap}
+.mod-demo{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:8px;background:var(--glass);font-size:12px;color:var(--tx)}
+.mod-demo svg{width:24px;height:24px;flex-shrink:0}
+
+/* 颜色混合示例标签 */
+.mix-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.mix-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:7px;background:var(--glass);font-size:11px;color:var(--tx)}
+.mix-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+
+/* 模态框按钮 */
+.mbtn{margin-top:18px;padding:9px 24px;border:1px solid var(--brd);border-radius:9px;background:var(--glass);
+color:var(--bright);font-family:'Orbitron',sans-serif;font-size:11px;cursor:pointer;transition:all .3s;letter-spacing:2px}
+.mbtn:hover{background:rgba(255,255,255,.1);border-color:var(--brd2)}
+
+/* ===== 游戏主布局（左侧面板 + 中间棋盘）===== */
+#scr-game{flex-direction:row;gap:28px;padding:14px}
+.side{display:flex;flex-direction:column;gap:10px;width:210px;flex-shrink:0}  /* 左侧面板 */
+.pnl{background:var(--glass);border:1px solid var(--brd);border-radius:13px;padding:14px;backdrop-filter:blur(10px)}  /* 面板样式 */
+.pnl h4{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;margin-bottom:8px}
+
+/* 统计数据行 */
+.sr{display:flex;justify-content:space-between;align-items:center;padding:2px 0}
+.sr .l{font-size:12px;color:var(--dim)}
+.sr .v{font-family:'Orbitron',sans-serif;font-size:15px;color:var(--bright)}
+
+/* 计时器显示 */
+.timer-display{font-family:'Orbitron',sans-serif;font-size:22px;color:var(--bright);text-align:center;padding:4px 0;letter-spacing:2px}
+
+/* ===== 模块托盘（存放可拖拽模块的区域）===== */
+/* 🔑 【每关提供的模块】：模块托盘的内容由 LEVELS 数组中的 inventory 字段决定，
+   这里只是样式定义。要修改每关提供的模块，请搜索 LEVELS 数组 */
+.tray-section{margin-bottom:4px}
+.tray-label{font-size:9px;color:var(--dim);letter-spacing:2px;font-family:'Orbitron',sans-serif;margin-bottom:4px;padding-left:2px}
+.tray-row{display:flex;gap:5px;margin-bottom:6px}
+.tray-item{width:44px;height:44px;border-radius:7px;cursor:grab;border:1px solid var(--brd);
+display:flex;align-items:center;justify-content:center;transition:all .2s;background:var(--surface);position:relative}
+.tray-item:hover{border-color:var(--brd2);transform:scale(1.1);background:var(--glass)}
+.tray-item:active{cursor:grabbing}
+.tray-item svg{width:26px;height:26px}
+.tray-item .count{position:absolute;bottom:1px;right:3px;font-size:9px;font-family:'Orbitron',sans-serif;color:var(--bright);opacity:.8}
+.tray-item.empty{opacity:.3;cursor:not-allowed;pointer-events:none}  /* 已用完的模块变灰 */
+
+/* ===== 图标按钮组（Reset / Pause / Menu）===== */
+.icon-btns{display:flex;gap:6px}
+.icon-btn{
+  flex:1;aspect-ratio:1;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:10px;border:1px solid var(--brd);
+  background:var(--glass);color:var(--dim);
+  cursor:pointer;transition:all .22s;
+  padding:0;
+}
+.icon-btn svg{width:18px;height:18px;display:block;transition:transform .2s}
+.icon-btn:hover{background:var(--glass2);color:var(--tx);border-color:var(--brd2);transform:translateY(-1px)}
+.icon-btn:hover svg{transform:scale(1.12)}
+.icon-btn:active{transform:translateY(0);opacity:.75}
+.icon-btn.warn{border-color:rgba(255,59,92,.22);color:rgba(255,59,92,.6)}
+.icon-btn.warn:hover{background:rgba(255,59,92,.07);color:var(--red);border-color:rgba(255,59,92,.45)}
+.icon-btn.pause.paused{border-color:rgba(255,217,59,.3);color:var(--yellow)}
+.icon-btn.pause.paused:hover{background:rgba(255,217,59,.07);border-color:rgba(255,217,59,.55)}
+
+/* ===== 棋盘区域 ===== */
+.board-area{position:relative;display:flex;flex-direction:column;align-items:center}
+.board-frame{position:relative;background:var(--glass);border:1px solid var(--brd);border-radius:16px;padding:14px;backdrop-filter:blur(10px)}
+.board{display:grid;gap:var(--gap);position:relative}
+
+/* ===== 棋盘格子 ===== */
+.cell{width:var(--cell);height:var(--cell);background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.045);
+border-radius:6px;position:relative;transition:border-color .3s,background .3s,box-shadow .4s;cursor:pointer}
+.cell.drop-over{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}  /* 拖拽悬停效果 */
+.cell .stack{position:absolute;inset:2px;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.cell .stack svg{width:85%;height:85%;filter:drop-shadow(0 0 4px rgba(255,255,255,.15))}
+
+/* ===== 关键点（检查点）指示器 ===== */
+/* 🔑 【修改检查点颜色】：检查点的颜色由 LEVELS 数组的 keyPoints 字段决定，
+   这里的 .kp-ring border-color 在 JS 中动态设置 */
+.cell .kp{position:absolute;inset:0;border-radius:6px;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.cell .kp-ring{width:70%;height:70%;border-radius:50%;border:2px dashed;opacity:.5;transition:all .4s;animation:kpPulse 2.5s ease-in-out infinite}
+.cell .kp-label{position:absolute;bottom:2px;right:4px;font-size:8px;font-family:'Orbitron',sans-serif;opacity:.6;letter-spacing:1px}
+/* 关键点脉冲动画 */
+@keyframes kpPulse{0%,100%{opacity:.35;transform:scale(.95)}50%{opacity:.6;transform:scale(1.05)}}
+
+/* 颜色流动箭头（预留） */
+.cell .flow-arrows{position:absolute;inset:0;pointer-events:none}
+.flow-arrow{position:absolute;width:100%;height:100%;opacity:0;transition:opacity .4s}
+
+/* ===== 放置反馈动画 ===== */
+.cell.fb-ok{animation:fbOk .7s ease forwards}       /* 正确放置 - 绿色闪烁 */
+.cell.fb-part{animation:fbPart .6s ease forwards}    /* 部分匹配 - 黄色闪烁 */
+.cell.fb-bad{animation:fbBad .7s ease forwards}      /* 错误放置 - 红色抖动 */
+@keyframes fbOk{0%{border-color:var(--green);box-shadow:0 0 22px rgba(59,255,139,.5)}100%{border-color:rgba(59,255,139,.2);box-shadow:0 0 10px rgba(59,255,139,.12);background:rgba(59,255,139,.05)}}
+@keyframes fbPart{0%{border-color:var(--yellow);box-shadow:0 0 18px rgba(255,217,59,.4)}100%{border-color:rgba(255,217,59,.15);box-shadow:0 0 6px rgba(255,217,59,.08);background:rgba(255,217,59,.03)}}
+@keyframes fbBad{0%,22%,44%{border-color:var(--red);opacity:.5}11%,33%{opacity:1}100%{border-color:rgba(255,255,255,.045);opacity:1}}
+
+/* 关键点匹配成功的样式 */
+.cell.kp-matched .kp-ring{border-style:solid;opacity:.8;animation:none;border-width:2.5px}
+.cell.kp-matched{box-shadow:0 0 16px var(--kp-color,rgba(255,255,255,.2))}
+
+/* 被染色的模块指示器（虚线边框脉冲） */
+.cell.dyed::after{content:'';position:absolute;inset:3px;border-radius:4px;border:1.5px solid var(--dye-color,#fff);
+opacity:.4;animation:dyePulse 1.8s ease-in-out infinite;pointer-events:none;z-index:3}
+@keyframes dyePulse{0%,100%{opacity:.25;border-width:1px}50%{opacity:.55;border-width:2px}}
+
+/* ===== 羁绊连线（SVG渲染，CSS仅保留兼容占位）===== */
+
+/* ===== 开屏动画的三个形状 ===== */
+.splash-shapes{display:flex;gap:28px;align-items:center;justify-content:center;margin-top:36px;cursor:pointer}
+.sp-shape{width:52px;height:52px;filter:drop-shadow(0 0 12px rgba(255,255,255,.15))}
+.sp-tri{animation:spFloat 2.4s ease-in-out infinite}
+.sp-sq{animation:spFloat 2.4s ease-in-out infinite .3s}
+.sp-cir{animation:spFloat 2.4s ease-in-out infinite .6s}
+.splash-shapes:hover .sp-shape{filter:drop-shadow(0 0 20px rgba(255,255,255,.35))}
+@keyframes spFloat{0%,100%{transform:translateY(0) scale(1);opacity:.7}50%{transform:translateY(-10px) scale(1.08);opacity:1}}
+
+/* 锁定的关卡卡片 */
+.card.locked{opacity:.38;cursor:not-allowed;pointer-events:none;filter:grayscale(.7)}
+.card.locked::after{content:'🔒';position:absolute;top:8px;right:10px;font-size:14px;opacity:.6}
+
+/* 提示消息 */
+.hint-msg{margin-top:8px;font-size:11px;color:var(--dim);min-height:16px;text-align:center;letter-spacing:1px}
+
+/* ===== 右侧面板（目标面板）===== */
+.target-panel{background:var(--glass);border:1px solid var(--brd);border-radius:13px;padding:12px;backdrop-filter:blur(10px)}
+.target-panel h4{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.legend{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.legend-shape{width:14px;height:14px;display:flex;align-items:center;justify-content:center}
+.legend-shape svg{width:100%;height:100%}
+
+/* ===== 评级显示（三角/方块/圆形 = 快/中/慢）===== */
+.rating-area{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:4px}
+.rating-shape{width:20px;height:20px;opacity:.15;transition:all .5s}
+.rating-shape.earned{opacity:1;filter:drop-shadow(0 0 6px rgba(255,255,255,.3))}
+.rating-shape svg{width:100%;height:100%}
+
+/* ===== 胜利画面 ===== */
+.vic{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;
+background:rgba(0,0,0,.82);backdrop-filter:blur(14px);transition:opacity .6s}
+.vic.hidden{opacity:0;pointer-events:none}
+.vic-title{font-family:'Orbitron',sans-serif;font-size:clamp(32px,5.5vw,52px);font-weight:900;
+background:linear-gradient(135deg,var(--green),var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+animation:vicP 2s ease-in-out infinite}
+@keyframes vicP{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+.vic-sub{color:var(--dim);font-size:13px;letter-spacing:5px;margin:4px 0 20px}
+.vic-rating{display:flex;gap:16px;margin-bottom:20px}
+.vic-rating-shape{width:40px;height:40px;opacity:.12;transition:all .6s ease}
+.vic-rating-shape.earned{opacity:1;transform:scale(1.1)}
+.vic-rating-shape svg{width:100%;height:100%}
+.vic-stats{display:flex;gap:32px}
+.vic-s{text-align:center}
+.vic-s .n{font-family:'Orbitron',sans-serif;font-size:24px;color:var(--bright)}
+.vic-s .l{font-size:10px;color:var(--dim);letter-spacing:2px;margin-top:2px}
+.vic-btns{display:flex;gap:12px;margin-top:24px}
+.vic-btn{padding:11px 24px;border-radius:10px;border:1px solid var(--brd);background:var(--glass);
+color:var(--bright);font-family:'Orbitron',sans-serif;font-size:11px;cursor:pointer;transition:all .3s;letter-spacing:2px}
+.vic-btn:hover{background:rgba(255,255,255,.1);transform:translateY(-2px)}
+.vic-btn.next{border-color:rgba(59,255,139,.35);color:var(--green)}
+
+/* ===== 特效层 & 拖拽幽灵图 ===== */
+#fx{position:fixed;inset:0;z-index:150;pointer-events:none}
+.ghost{position:fixed;z-index:300;pointer-events:none;opacity:.82;width:56px;height:56px;
+display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 8px rgba(255,255,255,.2))}
+.ghost.hidden{display:none}
+.ghost svg{width:100%;height:100%}
+
+/* 可拖拽的格子光标 */
+.cell[draggable="true"]{cursor:grab}
+.cell[draggable="true"]:active{cursor:grabbing}
+
+/* 过场动画 canvas */
+#cut-cv{width:100vw;height:100vh;display:block}
+
+/* 删除区域（拖拽到此删除模块） */
+#delete-zone{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  padding:10px 28px;border-radius:12px;
+  border:1.5px dashed rgba(255,59,92,.5);
+  background:rgba(255,59,92,.08);
+  color:rgba(255,59,92,.7);font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:3px;
+  pointer-events:none;z-index:400;
+  opacity:0;transition:opacity .2s;
+}
+#delete-zone.visible{opacity:1}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:2px}
+
+/* ===== 通关致谢滚动字幕（电影片尾风格）===== */
+#credits-overlay{position:fixed;inset:0;z-index:500;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 1.2s}
+#credits-overlay.active{opacity:1;pointer-events:auto}
+/* 恭喜动画 */
+.credits-congrats{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;opacity:0;transition:opacity 1s}
+.credits-congrats.show{opacity:1}
+.credits-congrats .cg-shapes{display:flex;gap:18px;justify-content:center;margin-bottom:28px}
+.credits-congrats .cg-shapes svg{width:48px;height:48px;filter:drop-shadow(0 0 16px rgba(255,255,255,.3))}
+/* 总评级区域 */
+.cg-final-rating{display:flex;gap:20px;justify-content:center;margin:20px 0 12px}
+.cg-final-rating svg{width:56px;height:56px;opacity:0;transition:all .8s ease}
+.cg-final-rating svg.earned{opacity:1;filter:drop-shadow(0 0 14px rgba(255,255,255,.4))}
+.cg-final-rating svg.not-earned{opacity:.12}
+/* 每关评级汇总 */
+.cg-level-ratings{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.cg-lv-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);min-width:48px}
+.cg-lv-item .cg-lv-shapes{display:flex;gap:3px}
+.cg-lv-item .cg-lv-shapes svg{width:14px;height:14px}
+.cg-lv-item .cg-lv-shapes svg.dim{opacity:.15}
+/* 粒子烟花 canvas */
+#credits-fx{position:absolute;inset:0;pointer-events:none;z-index:1}
+/* 滚动字幕容器 */
+.credits-scroll-wrap{position:absolute;inset:0;overflow:hidden;z-index:2}
+.credits-scroll{position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:480px;max-width:90vw;text-align:center;
+  will-change:transform}
+.credits-scroll .cr-section{margin-bottom:48px}
+.credits-scroll .cr-role{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:4px;color:var(--dim);text-transform:uppercase;margin-bottom:8px}
+.credits-scroll .cr-name{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:600;color:var(--bright);line-height:1.5}
+.credits-scroll .cr-divider{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--brd2),transparent);margin:32px auto}
+.credits-scroll .cr-thanks{font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:3px;color:var(--dim);margin-bottom:12px}
+.credits-scroll .cr-thanks-name{font-family:'Rajdhani',sans-serif;font-size:18px;color:var(--tx);line-height:1.6}
+.credits-scroll .cr-final{margin-top:60px;margin-bottom:120px}
+.credits-scroll .cr-final .cr-logo{font-family:'Orbitron',sans-serif;font-size:clamp(24px,4vw,36px);font-weight:900;
+  background:linear-gradient(135deg,var(--red),var(--purple),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+/* 跳过按钮 */
+.credits-skip{position:fixed;bottom:28px;right:28px;z-index:510;padding:8px 20px;border-radius:8px;border:1px solid var(--brd);
+  background:rgba(255,255,255,.05);color:var(--dim);font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:2px;
+  cursor:pointer;transition:all .3s;opacity:0;pointer-events:none}
+.credits-skip.show{opacity:1;pointer-events:auto}
+.credits-skip:hover{color:var(--bright);border-color:var(--brd2);background:rgba(255,255,255,.1)}
+
+/* ===== 响应式布局：小屏幕下游戏布局改为纵向 ===== */
+@media(max-width:1050px){
+  #scr-game{flex-direction:column;align-items:center;gap:14px;overflow-y:auto}
+  .side{width:100%;max-width:380px;flex-direction:row;flex-wrap:wrap;gap:6px}
+  .side>.pnl,.side>.target-panel{flex:1;min-width:160px}
+}
+</style>
+</head>
+<body>
+<!-- 背景粒子动画 canvas -->
+<canvas id="bg-cv"></canvas>
+
+<!-- ========== 开屏页面 ========== -->
+<div class="scr" id="scr-splash">
+  <div class="deco"></div>
+  <!-- 点击三个形状进入关卡选择 -->
+  <div class="splash-shapes" id="splash-btn">
+    <svg class="sp-shape sp-tri" viewBox="0 0 64 64"><polygon points="32,8 58,54 6,54" fill="#ff3b5c" fill-opacity=".85" stroke="#ff3b5c" stroke-opacity=".4" stroke-width="1.5"/></svg>
+    <svg class="sp-shape sp-sq" viewBox="0 0 64 64"><rect x="10" y="10" width="44" height="44" rx="6" fill="#3b8bff" fill-opacity=".85" stroke="#3b8bff" stroke-opacity=".4" stroke-width="1.5"/></svg>
+    <svg class="sp-shape sp-cir" viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="#ffd93b" fill-opacity=".85" stroke="#ffd93b" stroke-opacity=".4" stroke-width="1.5"/></svg>
+  </div>
+</div>
+
+<!-- ========== 过场动画页面 ========== -->
+<div class="scr hidden" id="scr-cut">
+  <canvas id="cut-cv"></canvas>
+</div>
+
+<!-- ========== 关卡选择页面 ========== -->
+<div class="scr hidden" id="scr-title">
+  <!-- 磨砂玻璃形状碰撞背景 -->
+  <canvas id="title-shapes-cv" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
+  <!-- 游戏标题 -->
+  <div class="logo" style="position:relative;z-index:1;">COLOR CODE</div>
+  <div class="sub" style="position:relative;z-index:1;"></div>
+  <div class="deco" style="position:relative;z-index:1;"></div>
+  <div class="cards" id="level-cards" style="position:relative;z-index:1;"></div> <!-- 关卡卡片由 JS 动态生成 -->
+
+  <!-- ═══════════════════════════════════════════════════════
+       🔑【添加或去掉 HOW TO PLAY 按钮】
+       ─────────────────────────────────────────────────────
+       ▶ 要隐藏此按钮：删除下面这一行，或加上 style="display:none"
+       ▶ 要恢复此按钮：把这一行加回来即可
+       ═══════════════════════════════════════════════════════ -->
+
+</div>
+
+<!-- ========== 教程弹窗 ========== -->
+<div class="ov hidden" id="tut-ov">
+  <div class="modal">
+    <h2>游戏说明</h2>
+    <p><span class="hl">目标：</span>用有限的模块将棋盘上所有关键点覆盖为对应颜色。</p>
+    <p><span class="hl">模块：</span>每种模块的传色方式不同：</p>
+    <div class="mod-row" id="tut-mods"></div> <!-- 由 showTut() 动态填充 -->
+    <p><span class="hl">颜色传播：</span>模块放置后会沿特定方向传播自身颜色，相邻模块可接收并混合颜色。</p>
+    <p><span class="hl">颜色混合：</span></p>
+    <div class="mix-row">
+      <div class="mix-chip"><div class="mix-dot" style="background:var(--red)"></div>+<div class="mix-dot" style="background:var(--blue)"></div>=<div class="mix-dot" style="background:var(--purple)"></div>紫色</div>
+      <div class="mix-chip"><div class="mix-dot" style="background:var(--red)"></div>+<div class="mix-dot" style="background:var(--yellow)"></div>=<div class="mix-dot" style="background:var(--orange)"></div>橙色</div>
+      <div class="mix-chip"><div class="mix-dot" style="background:var(--blue)"></div>+<div class="mix-dot" style="background:var(--yellow)"></div>=<div class="mix-dot" style="background:var(--green)"></div>绿色</div>
+    </div>
+    <p><span class="hl">关键点：</span>带虚线圆环的格子需要被对应颜色覆盖，全部匹配即可通关。</p>
+    <p><span class="hl">染色：</span>被其他模块光线照射的模块会被染色——其颜色与入射光混合，并将新颜色继续向前传播，形成连锁反应。</p>
+    <p><span class="hl">羁绊：</span>将特定模块相邻放置可触发协同效果：</p>
+    <div class="mix-row" id="tut-bonds"></div>
+    <p><span class="hl">操作方式：</span></p>
+    <p style="padding-left:8px;font-size:12px">
+      从模块栏拖拽模块到棋盘<br>
+      右键或双击旋转已放置的模块<br>
+      Shift+点击移除模块<br>
+    </p>
+    <p><span class="hl">评级：</span>完成速度决定评级 —— ▲ 三角（快）、■ 方块（中）、● 圆形（慢）。</p>
+    <p><span class="hl">资源：</span>模块数量有限，请仔细规划摆放位置！</p>
+    <button class="mbtn" onclick="hideTut()">明白了</button>
+  </div>
+</div>
+
+<!-- ========== 游戏主界面 ========== -->
+<div class="scr hidden" id="scr-game">
+  <!-- 左侧面板：计时器 + 模块托盘 + 按钮 -->
+  <div class="side" id="left-side">
+    <div class="pnl">
+      <div class="timer-display" id="timer">00:00</div>        <!-- 计时器 -->
+      <div class="rating-area" id="rating-bar"></div>            <!-- 实时评级指示 -->
+    </div>
+    <div class="pnl">
+      <div id="tray"></div>  <!-- 模块托盘（由 buildTray() 动态填充） -->
+    </div>
+    <div class="icon-btns">
+      <!-- 重置：循环箭头 -->
+      <button class="icon-btn warn" id="btn-reset" onclick="resetBoard()" title="Reset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+      </button>
+      <!-- 暂停/继续 -->
+      <button class="icon-btn pause" id="btn-pause" onclick="togglePause()" title="Pause">
+        <svg id="pause-icon" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16" rx="1"/>
+          <rect x="14" y="4" width="4" height="16" rx="1"/>
+        </svg>
+      </button>
+      <!-- 菜单：返回箭头 -->
+      <button class="icon-btn" id="btn-menu" onclick="toMenu()" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- 中间棋盘区域 -->
+  <div class="board-area">
+    <div class="board-frame">
+      <div class="board" id="board"></div>  <!-- 棋盘格子（由 buildBoard() 动态生成） -->
+    </div>
+  </div>
+
+</div>
+
+<!-- ========== 胜利画面 ========== -->
+<div class="vic hidden" id="vic">
+  <div class="vic-title">DECODED</div>
+  <div class="vic-sub">ALL KEY POINTS MATCHED</div>
+  <div class="vic-rating" id="vic-rating"></div>  <!-- 评级图标 -->
+  <div class="vic-stats">
+    <div class="vic-s"><div class="n" id="v-time">00:00</div><div class="l">TIME</div></div>
+    <div class="vic-s"><div class="n" id="v-moves">0</div><div class="l">MOVES</div></div>
+  </div>
+  <div class="vic-btns">
+    <button class="vic-btn" onclick="toMenu()">MENU</button>
+    <button class="vic-btn next" onclick="nextLv()">NEXT LEVEL</button>
+  </div>
+</div>
+
+<!-- 胜利粒子特效 canvas -->
+<canvas id="fx"></canvas>
+<!-- 拖拽时的幽灵预览图 -->
+<div class="ghost hidden" id="ghost"></div>
+<!-- 拖拽删除区域（触摸设备） -->
+<div id="delete-zone">拖到此处删除</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// COLOR CODE v2 — 方向性颜色流动解谜引擎
+// ═══════════════════════════════════════════════════════════
+
+// ===== 颜色十六进制映射表 =====
+// 🔑 【修改颜色】：这里定义了游戏中所有颜色的十六进制值
+// 如果你想修改某种颜色的显示效果，改这里即可
+const CHEX={red:'#ff3b5c',blue:'#3b8bff',yellow:'#ffd93b',purple:'#b850ff',orange:'#ff8c3b',green:'#3bff8b',white:'#f0f0f0'};
+
+// ===== 颜色混合规则表 =====
+// 定义两种颜色混合后产生的新颜色
+// 红+蓝=紫，红+黄=橙，蓝+黄=绿，同色混合不变
+const MIX={'red+blue':'purple','blue+red':'purple','red+yellow':'orange','yellow+red':'orange',
+  'blue+yellow':'green','yellow+blue':'green','red+red':'red','blue+blue':'blue','yellow+yellow':'yellow'};
+
+// 三原色列表（用于颜色混合判断）
+const BCOLS=['red','blue','yellow'];
+
+// ===== 方向常量 =====
+// U=上, D=下, L=左, R=右，值为 [行偏移, 列偏移]
+const DIR={U:[-1,0],D:[1,0],L:[0,-1],R:[0,1]};
+// 反方向映射
+const OPP={U:'D',D:'U',L:'R',R:'L'};
+
+// ===== 模块形状的输出端口定义 =====
+// 定义每种形状在不同旋转角度下的颜色输出方向
+const SHAPE_PORTS={
+  // 三角形：按旋转角度（0°,90°,180°,270°）定义输出方向
+  // rot 0: 尖角朝上，向上输出
+  // rot 90: 尖角朝右，向右输出
+  // rot 180: 尖角朝下，向下输出
+  // rot 270: 尖角朝左，向左输出
+  triangle:[[['U'],['U','R'],['R','D','L'],['U','L']],
+             [['R'],['R','D'],['D','L','U'],['R','U']],
+             [['D'],['D','L'],['L','U','R'],['D','R']],
+             [['L'],['L','U'],['U','R','D'],['L','D']]],
+  square:  [['U','D','L','R']],   // 方块：始终向四个正方向输出
+  circle:  [['U','D','L','R']]    // 圆形：始终向四个正方向输出（实际效果是 3×3 范围）
+};
+
+// ===== 三角形尖角方向计算 =====
+// 根据旋转角度返回三角形尖角指向的 [行偏移, 列偏移]
+function getTriTipDir(rotation){
+  const ri=Math.round(((rotation%360)+360)%360/90)%4;
+  return [[-1,0],[0,1],[1,0],[0,-1]][ri]; // 对应 U(上), R(右), D(下), L(左)
+}
+
+// ===== 获取三角形光线路径上的所有格子 =====
+// 从三角形尖角方向出发，沿直线到达棋盘边缘的所有格子
+function getTriangleRayCells(r,c,rotation,sz){
+  const [dr,dc]=getTriTipDir(rotation);
+  const cells=[];
+  let nr=r+dr, nc=c+dc;
+  while(nr>=0&&nr<sz&&nc>=0&&nc<sz){
+    cells.push({r:nr,c:nc});
+    nr+=dr; nc+=dc;
+  }
+  return cells;
+}
+
+// ===== 获取圆形辐射范围内的所有格子（3×3 邻域）=====
+function getCircleAreaCells(r,c,sz){
+  const cells=[];
+  for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+    if(dr===0&&dc===0) continue; // 跳过自身
+    const nr=r+dr, nc=c+dc;
+    if(nr>=0&&nr<sz&&nc>=0&&nc<sz) cells.push({r:nr,c:nc});
+  }
+  return cells;
+}
+
+// ===== 获取方块的四个正交邻居 =====
+function getSquareNeighbors(r,c,sz){
+  const cells=[];
+  for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+    const nr=r+dr, nc=c+dc;
+    if(nr>=0&&nr<sz&&nc>=0&&nc<sz) cells.push({r:nr,c:nc});
+  }
+  return cells;
+}
+
+// ===== SVG 图形生成 =====
+// 根据形状、颜色、旋转角度生成 SVG 字符串（用于棋盘和托盘中的模块图标）
+function mkSvg(shape,color,rot=0,op=0.75){
+  const c=color.startsWith?.('#')?color:(CHEX[color]||color);
+  // 发光滤镜
+  const f=`<defs><filter id="gl"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+  let s='';
+  if(shape==='square')
+    s=`<rect x="11" y="11" width="42" height="42" rx="5" fill="${c}" fill-opacity="${op}" stroke="${c}" stroke-opacity=".8" stroke-width="1.2" filter="url(#gl)"/>`;
+  else if(shape==='circle')
+    s=`<circle cx="32" cy="32" r="21" fill="${c}" fill-opacity="${op}" stroke="${c}" stroke-opacity=".8" stroke-width="1.2" filter="url(#gl)"/>`;
+  else // 三角形，通过 transform rotate 实现旋转
+    s=`<polygon points="32,7 57,53 7,53" fill="${c}" fill-opacity="${op}" stroke="${c}" stroke-opacity=".8" stroke-width="1.2" transform="rotate(${rot},32,32)" filter="url(#gl)"/>`;
+  return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${f}${s}</svg>`;
+}
+
+// ===== 评级图标 SVG =====
+// 生成评级用的小图标（三角=快，方块=中，圆形=慢）
+function ratingSvg(type,color='#fff',op=0.8){
+  if(type==='triangle') return `<svg viewBox="0 0 24 24"><polygon points="12,3 22,20 2,20" fill="${color}" fill-opacity="${op}"/></svg>`;
+  if(type==='square') return `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3" fill="${color}" fill-opacity="${op}"/></svg>`;
+  return `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="${color}" fill-opacity="${op}"/></svg>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🔑🔑🔑 关卡定义数组 LEVELS 🔑🔑🔑
+// ═══════════════════════════════════════════════════════════
+// 这是你需要修改的核心数据结构！
+//
+// 每个关卡对象包含以下字段：
+//   name       — 关卡名称（显示在标题中）
+//   size       — 棋盘大小（size × size 的网格）
+//
+//   🔑【检查点位置和颜色】修改 keyPoints 数组：
+//   keyPoints  — 关键点数组，每项包含：
+//     r        — 行号（从0开始，0是最上面）
+//     c        — 列号（从0开始，0是最左边）
+//     color    — 需要匹配的目标颜色
+//                可选值: 'red', 'blue', 'yellow', 'purple', 'orange', 'green', 'white'
+//
+//   🔑【每关提供的模块】修改 inventory 对象：
+//   inventory  — 每关可用的模块清单，结构为：
+//     { triangle: {red:数量, blue:数量, yellow:数量},
+//       square:   {red:数量, blue:数量, yellow:数量},
+//       circle:   {red:数量, blue:数量, yellow:数量} }
+//
+//   hints      — 提示次数（当前版本未使用）
+//   times      — 评级时间阈值 [三角(快), 方块(中), 圆形(慢)]，单位秒
+// ═══════════════════════════════════════════════════════════
+const LEVELS=[
+  // ──────────── 第1关：5×5 新手关 —— 仅使用三角形 ────────────
+  // 解法参考: tri(red,0,0,rot90) tri(blue,2,0,rot90) tri(yellow,4,0,rot90)
+  {name:'Level 1 — First Light',
+   size:5,                           // 5×5 棋盘
+   keyPoints:[
+     {r:0,c:4,color:'red'},          // 第0行第4列 需要变成红色
+     {r:2,c:2,color:'blue'},         // 第2行第2列 需要变成蓝色
+     {r:4,c:1,color:'yellow'}        // 第4行第1列 需要变成黄色
+   ],
+   inventory:{                       // 可用模块
+     triangle:{red:1,blue:1,yellow:1},   // 三角形：红1个、蓝1个、黄1个
+     square:{red:0,blue:0,yellow:0},     // 方块：无
+     circle:{red:0,blue:0,yellow:0}      // 圆形：无
+   },
+   hints:0,
+   times:[20,40,80]},                // 20秒内=三角评级, 40秒内=方块, 80秒内=圆形
+
+  // ──────────── 第2关：5×5 新手关 —— 引入圆形 ────────────
+  // 解法参考: tri(red,0,1,rot180) tri(blue,0,4,rot180) tri(yellow,0,3,rot0) cir(yellow,2,0)
+  {name:'Level 2 — Prism',
+   size:5,
+   keyPoints:[
+     {r:0,c:1,color:'red'},
+     {r:0,c:3,color:'yellow'},
+     {r:1,c:1,color:'yellow'},
+     {r:2,c:3,color:'blue'}
+   ],
+   inventory:{
+     triangle:{red:1,blue:1,yellow:1},
+     square:{red:0,blue:0,yellow:0},
+     circle:{red:0,blue:0,yellow:1}      // 1个黄色圆形
+   },
+   hints:0, times:[30,60,120]},
+
+  // ──────────── 第3关：5×5 中级关 —— 引入染色机制（光线可以改变模块颜色）引入正方形────────────
+  // 解法参考: tri(red,0,0,rot0) tri(blue,0,2,rot180) tri(yellow,2,4,rot270) sq(blue,3,1) cir(red,0,3)
+  {name:'Level 3 — Crossfire',
+   size:5,
+   keyPoints:[
+     {r:0,c:4,color:'red'},
+     {r:1,c:2,color:'purple'},       // 紫色 = 红+蓝混合
+     {r:2,c:0,color:'orange'},       // 橙色 = 红+黄混合
+     {r:4,c:1,color:'blue'}
+   ],
+   inventory:{
+     triangle:{red:1,blue:1,yellow:1},
+     square:{red:0,blue:1,yellow:0},     // 1个蓝色方块
+     circle:{red:1,blue:0,yellow:0}      // 1个红色圆形
+   },
+   hints:0, times:[40,80,150]},
+
+  // ──────────── 第4关：6×6 中级关 ——复杂关卡────────────
+  // 解法参考: tri(red,0,0,rot90) cir(blue,1,1) tri(blue,4,0,rot0) sq(yellow,2,0) tri(yellow,2,5,rot0)
+  {name:'Level 4 — Bonds',
+   size:6,                           // 6×6 棋盘
+   keyPoints:[
+     {r:0,c:3,color:'purple'},
+     {r:1,c:0,color:'green'},        // 绿色 = 蓝+黄混合
+     {r:3,c:0,color:'green'},
+     {r:1,c:5,color:'yellow'},
+     {r:2,c:2,color:'blue'}
+   ],
+   inventory:{
+     triangle:{red:1,blue:1,yellow:1},
+     square:{red:0,blue:0,yellow:1},
+     circle:{red:0,blue:1,yellow:0}
+   },
+   hints:0, times:[50,100,200]},
+
+  // ──────────── 第5关：6×6 高级关 ——  ────────────
+  // cir(red,1,5)+sq(blue,2,5) 形成广播羁绊 → 方块蓝色对角线传播到 (3,4)=紫色
+  {name:'Level 5 — Resonance',
+   size:6,
+   keyPoints:[
+     {r:3,c:4,color:'purple'},
+     {r:0,c:2,color:'orange'},
+     {r:4,c:3,color:'blue'},
+     {r:2,c:2,color:'red'},
+     {r:5,c:3,color:'green'},
+     {r:1,c:0,color:'orange'}
+   ],
+   inventory:{
+     triangle:{red:1,blue:1,yellow:1},
+     square:{red:1,blue:1,yellow:0},
+     circle:{red:1,blue:0,yellow:1}
+   },
+   hints:0, times:[60,120,220]},
+
+  // ──────────── 第6关：6×6 高级关 —— 多步染色链，两个红色三角形 ────────────
+  {name:'Level 6 — Dye Chain',
+   size:6,
+   keyPoints:[
+     {r:0,c:0,color:'red'},
+     {r:1,c:2,color:'red'},
+     {r:2,c:3,color:'purple'},
+     {r:2,c:4,color:'blue'},
+     {r:3,c:1,color:'orange'},
+     {r:5,c:2,color:'red'},
+     {r:4,c:3,color:'white'}
+   ],
+   inventory:{
+     triangle:{red:2,blue:1,yellow:1},   // 注意: 2个红色三角形
+     square:{red:0,blue:1,yellow:0},
+     circle:{red:0,blue:0,yellow:1}
+   },
+   hints:0, times:[80,160,300]},
+
+  // ──────────── 第7关：8×8 专家关 —— 复杂混色，白色检查点需要三原色全部混合 ────────────
+  {name:'Level 7 — Lattice',
+   size:8,                           // 8×8 棋盘
+   keyPoints:[
+     {r:1,c:4,color:'blue'},
+     {r:1,c:6,color:'blue'},
+     {r:4,c:1,color:'red'},
+     {r:4,c:5,color:'green'},
+     {r:5,c:1,color:'red'},
+     {r:5,c:6,color:'yellow'},
+     {r:6,c:3,color:'red'},
+     {r:6,c:4,color:'yellow'},
+     {r:2,c:3,color:'white'}         // 白色 = 红+蓝+黄 三色混合
+   ],
+   inventory:{
+     triangle:{red:2,blue:1,yellow:1},
+     square:{red:0,blue:0,yellow:0},
+     circle:{red:0,blue:1,yellow:1}
+   },
+   hints:0, times:[120,240,450]},
+
+  // ──────────── 第8关：10×10 大师关 —— 所有机制综合，四象限颜色场 ────────────
+  {name:'Level 8 — Singularity',
+   size:10,                          // 10×10 棋盘
+   keyPoints:[
+     {r:0,c:3,color:'blue'},
+     {r:2,c:4,color:'green'},
+     {r:3,c:2,color:'purple'},
+     {r:4,c:6,color:'red'},
+     {r:4,c:4,color:'white'},
+     {r:4,c:7,color:'orange'},
+     {r:7,c:2,color:'white'},
+     {r:5,c:3,color:'green'},
+     {r:2,c:8,color:'yellow'},
+     {r:7,c:3,color:'orange'},
+     {r:5,c:2,color:'white'},
+   ],
+   inventory:{
+     triangle:{red:3,blue:0,yellow:2},
+     square:{red:0,blue:1,yellow:1},
+     circle:{red:0,blue:1,yellow:1}
+   },
+   hints:0, times:[180,360,700]}
+];
+
+// ===== 游戏全局状态对象 =====
+let G={};               // 当前游戏状态（关卡信息、棋盘数据等）
+let timerInterval=null;  // 计时器定时器 ID
+
+// ═══════════════════════════════════════════════════════════
+// 🔑🔑🔑【添加或去掉"必须通关前一关才能进下一关"的要求】
+// ═══════════════════════════════════════════════════════════
+//
+// 当前行为（有锁）：只有 Set 里包含的关卡编号才能点击，
+//   初始只有第 0 关解锁，通关后自动解锁下一关。
+//
+// ▶ 要【去掉锁定限制】（所有关卡直接可玩）：
+//   把下面这行改为：
+//     let unlockedLevels = new Set([0,1,2,3,4,5,6,7]);
+//   或者在 buildCards() 里把 locked 判断改为 const locked = false;
+//
+// ▶ 要【恢复锁定限制】：
+//   把下面这行改回：
+//     let unlockedLevels = new Set([0]);
+// ═══════════════════════════════════════════════════════════
+let unlockedLevels=new Set([0]);
+// 每关最佳评级记录：levelRatings[i] = 0(圆形), 1(方块), 2(三角)
+let levelRatings={};
+
+// ═══════════════════════════════════════════════════════════
+// 页面/屏幕管理
+// ═══════════════════════════════════════════════════════════
+
+// 切换到指定 ID 的屏幕（隐藏所有其他屏幕）
+function showScr(id){document.querySelectorAll('.scr').forEach(s=>s.classList.add('hidden'));document.getElementById(id).classList.remove('hidden')}
+
+// 显示教程弹窗
+function showTut(){
+  // 填充教程中的模块说明
+  const mr=document.getElementById('tut-mods');
+  mr.innerHTML=`
+    <div class="mod-demo">${mkSvg('triangle','#ff3b5c',0,.8)} <b>三角形</b> — 朝尖角方向无限射出颜色光线，旋转可调整方向。</div>
+    <div class="mod-demo">${mkSvg('square','#3b8bff',0,.8)} <b>方块</b> — 向四个正方向传导颜色，可作为路径桥接。</div>
+    <div class="mod-demo">${mkSvg('circle','#ffd93b',0,.8)} <b>圆形</b> — 向周围 3×3 范围内的所有格子辐射颜色。</div>`;
+  // 填充羁绊说明
+  const bi=document.getElementById('tut-bonds');
+  if(bi) bi.innerHTML=`
+    <div class="mix-chip" style="border-left:2px solid var(--red)">▲+▲ 激光 — 光束扩展为3格宽的走廊</div>
+    <div class="mix-chip" style="border-left:2px solid var(--blue)">●+■ 广播 — 方块获得对角线传播能力（8方向）</div>
+    <div class="mix-chip" style="border-left:2px solid var(--purple)">▲+● 聚焦 — 圆形扩展至5×5范围，三角形获得侧面溅射</div>
+    <div class="mix-chip" style="border-left:2px solid var(--green)">同色共鸣 — 传播距离延伸至2格</div>`;
+  document.getElementById('tut-ov').classList.remove('hidden');
+}
+
+// 隐藏教程弹窗
+function hideTut(){document.getElementById('tut-ov').classList.add('hidden')}
+
+
+// ===== 生成关卡选择卡片 =====
+function buildCards(){
+  const c=document.getElementById('level-cards');
+  c.innerHTML='';
+  LEVELS.forEach((lv,i)=>{
+    const d=document.createElement('div');
+    // 🔑【关卡锁定判断在这里】
+    // 当前逻辑：不在 unlockedLevels 集合里的关卡会被锁定
+    // ▶ 要去掉锁定：把下面这行改为 const locked = false;
+    // ▶ 要恢复锁定：改回 const locked = !unlockedLevels.has(i);
+    const locked = !unlockedLevels.has(i);
+    d.className='card'+(locked?' locked':'');
+    if(!locked) d.onclick=()=>startLevel(i);  // 点击进入关卡
+    const diff=i<2?'Beginner':i<4?'Intermediate':i<6?'Advanced':'Master';
+    const stars=Math.min(i+1,8);  // 显示难度菱形数量
+    d.innerHTML=`<div class="ic">${'◆'.repeat(stars)}</div>`;
+    c.appendChild(d);
+  });
+}
+
+// ===== 开始关卡 =====
+function startLevel(idx){
+  const lv=LEVELS[idx];
+  // 深拷贝 inventory（避免修改原始关卡数据）
+  const inv={};
+  for(const shape in lv.inventory){
+    inv[shape]={};
+    for(const col in lv.inventory[shape]) inv[shape][col]=lv.inventory[shape][col];
+  }
+  // 初始化游戏状态
+  G={
+    level:idx,                   // 当前关卡索引
+    size:lv.size,                // 棋盘尺寸
+    grid:Array.from({length:lv.size},()=>Array.from({length:lv.size},()=>null)),      // 棋盘网格（存放模块）
+    colorMap:Array.from({length:lv.size},()=>Array.from({length:lv.size},()=>null)),   // 颜色传播结果图
+    keyPoints:lv.keyPoints.map(kp=>({...kp,matched:false})),   // 关键点（含匹配状态）
+    inventory:inv,               // 可用模块清单（深拷贝）
+    moves:0,                     // 操作次数
+    hintsUsed:0, maxHints:lv.hints,
+    won:false,                   // 是否已通关
+    startTime:Date.now(),        // 开始时间
+    elapsed:0,                   // 已用时间（秒）
+    times:lv.times               // 评级时间阈值
+  };
+  document.getElementById('lv-name')?.textContent&&(document.getElementById('lv-name').textContent=lv.name);
+  // 清除上一关残留的羁绊可视化
+  document.querySelectorAll('.bond-svg-overlay').forEach(el=>{if(el._stopAnim)el._stopAnim();el.remove();});
+  // 构建游戏界面
+  buildBoard(); buildTray(); buildKPLegend(); buildColorGuide(); buildRatingBar();
+  stats(); showScr('scr-game');
+  document.getElementById('vic').classList.add('hidden');
+  startTimer();
+  // 重置暂停状态
+  paused = false;
+  const pb = document.getElementById('btn-pause');
+  const pi = document.getElementById('pause-icon');
+  if(pb) pb.classList.remove('paused');
+  if(pi) pi.innerHTML = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
+  const bf = document.querySelector('.board-frame');
+  if(bf){ bf.style.filter=''; bf.style.pointerEvents=''; }
+}
+
+// 进入下一关
+function nextLv(){
+  const nextIdx=(G.level+1)%LEVELS.length;
+  unlockedLevels.add(nextIdx);
+  document.getElementById('vic').classList.add('hidden');
+  stopTimer();
+  startLevel(nextIdx);
+}
+
+// 返回主菜单
+function toMenu(){
+  // 如果已通关则解锁下一关
+  if(G.won) unlockedLevels.add(Math.min((G.level+1),LEVELS.length-1));
+  showScr('scr-title');
+  buildCards();
+  document.getElementById('vic').classList.add('hidden');
+  stopTimer();G.won=false;
+}
+
+// ===== 计时器 =====
+function startTimer(){
+  stopTimer();
+  G.startTime=Date.now();
+  timerInterval=setInterval(()=>{
+    if(G.won) return;
+    G.elapsed=Math.floor((Date.now()-G.startTime)/1000);
+    document.getElementById('timer').textContent=fmtTime(G.elapsed);
+    updateRatingBar();  // 实时更新评级指示
+  },200);  // 每200ms更新一次
+}
+function stopTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null}}
+
+// ===== 暂停 / 继续 =====
+let paused = false;
+function togglePause(){
+  if(G.won) return;
+  paused = !paused;
+  const btn  = document.getElementById('btn-pause');
+  const icon = document.getElementById('pause-icon');
+  if(paused){
+    // 暂停：停计时，遮罩棋盘，图标换成三角播放
+    stopTimer();
+    btn.classList.add('paused');
+    icon.innerHTML = '<polygon points="6,4 20,12 6,20"/>';
+    document.querySelector('.board-frame').style.filter = 'blur(6px)';
+    document.querySelector('.board-frame').style.pointerEvents = 'none';
+    if(typeof AudioSys!=='undefined') AudioSys.sfxClick();
+  } else {
+    // 继续：恢复计时，还原棋盘，图标换回双竖线
+    G.startTime = Date.now() - G.elapsed * 1000;
+    startTimer();
+    btn.classList.remove('paused');
+    icon.innerHTML = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
+    document.querySelector('.board-frame').style.filter = '';
+    document.querySelector('.board-frame').style.pointerEvents = '';
+    if(typeof AudioSys!=='undefined') AudioSys.sfxClick();
+  }
+}
+// 将秒数格式化为 MM:SS
+function fmtTime(s){const m=Math.floor(s/60);return String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+
+// ═══════════════════════════════════════════════════════════
+// 棋盘构建
+// ═══════════════════════════════════════════════════════════
+function buildBoard(){
+  const b=document.getElementById('board');
+  b.innerHTML='';
+  // 根据棋盘大小调整格子尺寸
+  const cs=G.size<=5?80:G.size<=6?68:G.size<=8?52:42;
+  document.documentElement.style.setProperty('--cell',cs+'px');
+  b.style.gridTemplateColumns=`repeat(${G.size},var(--cell))`;
+
+  // 遍历每个格子创建 DOM 元素
+  for(let r=0;r<G.size;r++) for(let c=0;c<G.size;c++){
+    const el=document.createElement('div');
+    el.className='cell'; el.dataset.r=r; el.dataset.c=c;
+    el.innerHTML='<div class="stack"></div>';  // 模块图标容器
+
+    // 🔑 检查是否是关键点（检查点），如果是则添加虚线圆环指示器
+    const kp=G.keyPoints.find(k=>k.r===r&&k.c===c);
+    if(kp){
+      const hex=CHEX[kp.color];  // 获取关键点颜色的十六进制值
+      el.innerHTML+=`<div class="kp"><div class="kp-ring" style="border-color:${hex}"></div></div>`;
+    }
+
+    // ── 拖放事件监听 ──
+    // 拖拽悬停
+    el.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';el.classList.add('drop-over')});
+    el.addEventListener('dragleave',()=>el.classList.remove('drop-over'));
+    // 放下模块
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.classList.remove('drop-over');
+      try{
+        const d=JSON.parse(e.dataTransfer.getData('text/plain'));
+        if(d.fromR!=null){
+          // 从另一个格子移动模块过来
+          moveModule(d.fromR, d.fromC, +el.dataset.r, +el.dataset.c);
+        } else {
+          // 从托盘放置新模块
+          place(+el.dataset.r, +el.dataset.c, d.shape, d.color);
+        }
+      }catch(err){}
+    });
+    // 右键屏蔽默认菜单
+    el.addEventListener('contextmenu',e=>e.preventDefault());
+    // 左键单击三角形 = 旋转；Shift+点击 或 中键 = 移除
+    el.addEventListener('mousedown',e=>{
+      if(e.shiftKey||e.button===1){e.preventDefault();removeMod(+el.dataset.r,+el.dataset.c);return;}
+      if(e.button===0){
+        const r=+el.dataset.r,c=+el.dataset.c;
+        if(G.grid[r]&&G.grid[r][c]&&G.grid[r][c].shape==='triangle') el._pendingRotate=true;
+      }
+    });
+    el.addEventListener('mouseup',e=>{
+      if(e.button===0&&el._pendingRotate){
+        el._pendingRotate=false;
+        const r=+el.dataset.r,c=+el.dataset.c;
+        if(G.grid[r]&&G.grid[r][c]&&G.grid[r][c].shape==='triangle') rotate(r,c);
+      }
+    });
+    el.addEventListener('dragstart',()=>{el._pendingRotate=false;});
+    // 触摸事件（移动端）
+    el.addEventListener('touchstart',e=>onCellTouch(e,el),{passive:false});
+    b.appendChild(el);
+  }
+
+  // 棋盘边框区域也支持拖放删除（拖到格子外的边框部分）
+  const bf=document.querySelector('.board-frame');
+  bf.addEventListener('dragover',e=>e.preventDefault());
+  bf.addEventListener('drop',e=>{
+    if(e.target.closest('.cell')) return;  // 如果拖到了格子上，由格子处理
+    e.preventDefault();
+    try{
+      const d=JSON.parse(e.dataTransfer.getData('text/plain'));
+      if(d.fromR!=null) removeMod(d.fromR, d.fromC);  // 删除模块
+    }catch(err){}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// 模块托盘构建
+// ═══════════════════════════════════════════════════════════
+function buildTray(){
+  const t=document.getElementById('tray');
+  t.innerHTML='';
+  const shapes=['triangle','square','circle'];
+  for(const shape of shapes){
+    const sec=document.createElement('div');
+    sec.className='tray-section';
+    const row=document.createElement('div');
+    row.className='tray-row';
+    // 遍历三原色生成托盘项
+    for(const color of BCOLS){
+      const cnt=G.inventory[shape]?.[color]||0;  // 当前可用数量
+      const el=document.createElement('div');
+      el.className='tray-item'+(cnt<=0?' empty':'');  // 数量为0则标记为空
+      el.innerHTML=mkSvg(shape,color,0,.8)+`<span class="count">${cnt}</span>`;
+      el.dataset.shape=shape; el.dataset.color=color;
+      if(cnt>0){
+        // 可拖拽
+        el.draggable=true;
+        el.addEventListener('dragstart',e=>{
+          e.dataTransfer.setData('text/plain',JSON.stringify({shape,color}));
+          e.dataTransfer.effectAllowed='move';
+          // 设置拖拽时的幽灵预览图
+          const gh=document.getElementById('ghost');
+          gh.innerHTML=mkSvg(shape,color,0,.85);gh.classList.remove('hidden');
+          gh.style.left='-200px';gh.style.top='-200px';
+          e.dataTransfer.setDragImage(gh,28,28);
+        });
+        el.addEventListener('dragend',()=>document.getElementById('ghost').classList.add('hidden'));
+        // 触摸拖拽（移动端）
+        el.addEventListener('touchstart',e=>onTrayTouch(e,el),{passive:false});
+      }
+      row.appendChild(el);
+    }
+    sec.appendChild(row);
+    t.appendChild(sec);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 拖拽 & 触摸统一系统
+// ═══════════════════════════════════════════════════════════
+// tDrag: 当前拖拽的模块信息 {shape, color, fromR, fromC}
+// fromR/fromC 为 null 表示从托盘拖出，否则表示从棋盘格子移动
+let tDrag=null, tGhost=null;
+
+// 创建拖拽时的幽灵预览
+function startDragGhost(shape, color, rotation=0){
+  const gh=document.getElementById('ghost');
+  gh.innerHTML=mkSvg(shape,color,rotation,.85);
+  gh.classList.remove('hidden');
+  return gh;
+}
+
+// ── 托盘触摸拖拽 ──
+function onTrayTouch(e, el){
+  e.preventDefault();
+  tDrag={shape:el.dataset.shape, color:el.dataset.color, fromR:null, fromC:null};
+  tGhost=startDragGhost(tDrag.shape, tDrag.color);
+  const t=e.touches[0];
+  tGhost.style.left=(t.clientX-28)+'px'; tGhost.style.top=(t.clientY-28)+'px';
+  document.addEventListener('touchmove',onTM,{passive:false});
+  document.addEventListener('touchend',onTE);
+}
+
+// ── 格子触摸：拖拽已有模块 或 双击旋转 ──
+let lastTap=0;
+function onCellTouch(e, el){
+  const r=+el.dataset.r, c=+el.dataset.c;
+  if(!G.grid[r][c]) return;  // 空格子忽略
+  // 检测双击旋转
+  const now=Date.now();
+  if(now-lastTap<300){ lastTap=0; e.preventDefault(); rotate(r,c); return; }
+  lastTap=now;
+  e.preventDefault();
+  const mod=G.grid[r][c];
+  tDrag={shape:mod.shape, color:mod.color, rotation:mod.rotation, fromR:r, fromC:c};
+  tGhost=startDragGhost(mod.shape, mod.color, mod.rotation);
+  const t=e.touches[0];
+  tGhost.style.left=(t.clientX-28)+'px'; tGhost.style.top=(t.clientY-28)+'px';
+  document.getElementById('delete-zone').classList.add('visible');  // 显示删除区
+  document.addEventListener('touchmove',onTM,{passive:false});
+  document.addEventListener('touchend',onTE);
+}
+
+// 触摸移动：更新幽灵预览位置
+function onTM(e){
+  e.preventDefault();
+  if(!tGhost) return;
+  const t=e.touches[0];
+  tGhost.style.left=(t.clientX-28)+'px'; tGhost.style.top=(t.clientY-28)+'px';
+  // 高亮目标格子
+  document.querySelectorAll('.cell.drop-over').forEach(c=>c.classList.remove('drop-over'));
+  const target=document.elementFromPoint(t.clientX,t.clientY)?.closest('.cell');
+  if(target) target.classList.add('drop-over');
+}
+
+// 触摸结束：处理放置/移动/删除
+function onTE(e){
+  if(!tDrag||!tGhost){ cleanup(); return; }
+  tGhost.classList.add('hidden');
+  document.querySelectorAll('.cell.drop-over').forEach(c=>c.classList.remove('drop-over'));
+  document.getElementById('delete-zone').classList.remove('visible');
+  const t=e.changedTouches[0];
+
+  // 检查是否放在删除区域
+  const dz=document.getElementById('delete-zone');
+  const dzRect=dz.getBoundingClientRect();
+  const onDeleteZone=t.clientX>=dzRect.left&&t.clientX<=dzRect.right&&t.clientY>=dzRect.top&&t.clientY<=dzRect.bottom;
+
+  const target=document.elementFromPoint(t.clientX,t.clientY)?.closest('.cell');
+
+  if(tDrag.fromR!==null){
+    // 从棋盘移动
+    if(onDeleteZone){
+      removeMod(tDrag.fromR, tDrag.fromC);         // 删除
+    } else if(target){
+      const tr=+target.dataset.r, tc=+target.dataset.c;
+      if(tr===tDrag.fromR && tc===tDrag.fromC){
+        rotate(tDrag.fromR, tDrag.fromC);           // 原地放回 = 旋转
+      } else {
+        moveModule(tDrag.fromR, tDrag.fromC, tr, tc); // 移到新位置
+      }
+    } else {
+      removeMod(tDrag.fromR, tDrag.fromC);          // 拖到棋盘外 = 删除
+    }
+  } else {
+    // 从托盘放置
+    if(target) place(+target.dataset.r, +target.dataset.c, tDrag.shape, tDrag.color);
+  }
+  cleanup();
+}
+
+// 清理拖拽状态
+function cleanup(){
+  tDrag=null; tGhost=null;
+  document.getElementById('delete-zone').classList.remove('visible');
+  document.removeEventListener('touchmove',onTM);
+  document.removeEventListener('touchend',onTE);
+}
+
+// ===== 在棋盘格子间移动模块 =====
+function moveModule(fromR, fromC, toR, toC){
+  if(G.won) return;
+  if(fromR===toR && fromC===toC) return;
+  const mod=G.grid[fromR][fromC];
+  if(!mod) return;
+  if(G.grid[toR][toC]!==null){ flash(toR,toC,'fb-bad'); return; }  // 目标格子已被占用
+  G.grid[toR][toC]={...mod};
+  G.grid[fromR][fromC]=null;
+  G.moves++;
+  renderCell(fromR,fromC); renderCell(toR,toC);
+  propagateColors(); buildTray(); stats();
+  checkWin();
+}
+
+
+// 关键点图例（已移除）
+function buildKPLegend(){}
+// 颜色指南（已移除）
+function buildColorGuide(){}
+
+// ===== 评级进度条 =====
+function buildRatingBar(){
+  const rb=document.getElementById('rating-bar');
+  rb.innerHTML='';
+  // 生成三个评级图标：三角(快)、方块(中)、圆形(慢)
+  ['triangle','square','circle'].forEach(t=>{
+    const d=document.createElement('div');
+    d.className='rating-shape';d.id=`rb-${t}`;
+    d.innerHTML=ratingSvg(t,'#fff',.6);
+    rb.appendChild(d);
+  });
+}
+
+// 实时更新评级（根据已用时间）
+function updateRatingBar(){
+  const t=G.elapsed;
+  const [t1,t2]=G.times;
+  document.getElementById('rb-triangle').classList.toggle('earned',t<=t1);  // 时间在 t1 内 = 三角
+  document.getElementById('rb-square').classList.toggle('earned',t<=t2);    // 时间在 t2 内 = 方块
+  document.getElementById('rb-circle').classList.toggle('earned',true);     // 圆形始终获得
+}
+
+// ===== 放置模块 =====
+function place(r,c,shape,color){
+  if(G.won)return;
+  if(G.grid[r][c]!==null){flash(r,c,'fb-bad');msg('Cell occupied — Shift+click to remove');return}
+  const cnt=G.inventory[shape]?.[color]||0;
+  if(cnt<=0){msg('No modules of this type left');return}
+  G.inventory[shape][color]--;   // 消耗一个模块
+  G.grid[r][c]={shape,color,rotation:0};  // 放置到棋盘（初始旋转0°）
+  G.moves++;
+  renderCell(r,c);
+  propagateColors();  // 重新计算颜色传播
+  buildTray(); stats();
+  checkWin();
+}
+
+// ===== 移除模块 =====
+function removeMod(r,c){
+  if(G.won)return;
+  const mod=G.grid[r][c];
+  if(!mod)return;
+  G.inventory[mod.shape][mod.color]++;  // 归还模块到库存
+  G.grid[r][c]=null;
+  G.moves++;
+  renderCell(r,c);
+  propagateColors();
+  buildTray(); stats();
+}
+
+// ===== 旋转模块（每次旋转90°）=====
+function rotate(r,c){
+  if(G.won)return;
+  const mod=G.grid[r][c];
+  if(!mod)return;
+  mod.rotation=(mod.rotation+90)%360;
+  G.moves++;
+  renderCell(r,c);
+  propagateColors();
+  stats();
+  checkWin();
+}
+
+// ===== 渲染单个格子 =====
+// dyedColor: 被其他模块光线染色后的颜色（可能与模块本身颜色不同）
+function renderCell(r,c,dyedColor){
+  const cel=document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+  const sk=cel.querySelector('.stack');
+  sk.innerHTML='';
+  const mod=G.grid[r][c];
+  if(mod){
+    const displayColor=dyedColor||mod.color;
+    sk.innerHTML=mkSvg(mod.shape,displayColor,mod.rotation,.75);
+    // 如果被染色（颜色与原始不同），显示染色指示
+    if(dyedColor&&dyedColor!==mod.color){
+      cel.classList.add('dyed');
+      cel.style.setProperty('--dye-color',CHEX[dyedColor]||'#fff');
+    } else {
+      cel.classList.remove('dyed');
+    }
+    // 使格子可拖拽（支持移动已放置的模块）
+    cel.draggable=true;
+    cel.ondragstart=e=>{
+      e.dataTransfer.setData('text/plain',JSON.stringify({shape:mod.shape,color:mod.color,rotation:mod.rotation,fromR:r,fromC:c}));
+      e.dataTransfer.effectAllowed='move';
+      const gh=document.getElementById('ghost');
+      gh.innerHTML=mkSvg(mod.shape,displayColor,mod.rotation,.85);
+      gh.classList.remove('hidden');gh.style.left='-200px';gh.style.top='-200px';
+      e.dataTransfer.setDragImage(gh,28,28);
+    };
+    cel.ondragend=e=>{
+      document.getElementById('ghost').classList.add('hidden');
+      // 如果拖到了无效区域，删除模块
+      if(e.dataTransfer.dropEffect==='none'){
+        removeMod(r,c);
+      }
+    };
+  } else {
+    // 空格子不可拖拽
+    cel.draggable=false;
+    cel.ondragstart=null;
+    cel.ondragend=null;
+    cel.classList.remove('dyed');
+  }
+  // 根据颜色图显示格子的光晕效果
+  const cm=G.colorMap[r][c];
+  if(cm){
+    const hex=CHEX[cm]||'#fff';
+    cel.style.boxShadow=`inset 0 0 16px ${hex}33, 0 0 6px ${hex}1a`;
+    cel.style.background=`rgba(255,255,255,.025)`;
+  } else if(!mod){
+    cel.style.boxShadow='';
+    cel.style.background='';
+  } else {
+    const hex=CHEX[mod.color]||'#fff';
+    cel.style.boxShadow=`inset 0 0 12px ${hex}22`;
+  }
+}
+
+// ===== 渲染羁绊连线指示器 =====
+function renderBonds(bonds){
+  document.querySelectorAll('.bond-svg-overlay').forEach(el=>{if(el._stopAnim)el._stopAnim();el.remove();});
+  const bf=document.querySelector('.board-frame');
+  const fRect=bf.getBoundingClientRect();
+  if(!bonds.length) return;
+
+  // 用 Canvas 而非 SVG，方便做逐帧动画
+  const cv=document.createElement('canvas');
+  cv.classList.add('bond-svg-overlay');
+  cv.style.cssText=`position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;`;
+  cv.width=bf.offsetWidth; cv.height=bf.offsetHeight;
+  bf.appendChild(cv);
+  const cx=cv.getContext('2d');
+
+  // 颜色跟随模块：取两个模块颜色混合
+  const lines=bonds.map(b=>{
+    const c1=document.querySelector(`.cell[data-r="${b.r1}"][data-c="${b.c1}"]`);
+    const c2=document.querySelector(`.cell[data-r="${b.r2}"][data-c="${b.c2}"]`);
+    if(!c1||!c2) return null;
+    const r1=c1.getBoundingClientRect(), r2=c2.getBoundingClientRect();
+    // 取模块实际颜色（染色后的颜色，从格子 boxShadow 或直接读 grid）
+    const mod1=G.grid[b.r1]?.[b.c1], mod2=G.grid[b.r2]?.[b.c2];
+    const col1=CHEX[(G.colorMap[b.r1]?.[b.c1])||mod1?.color]||'#fff';
+    const col2=CHEX[(G.colorMap[b.r2]?.[b.c2])||mod2?.color]||'#fff';
+    return {
+      x1:r1.left+r1.width/2-fRect.left,  y1:r1.top+r1.height/2-fRect.top,
+      x2:r2.left+r2.width/2-fRect.left,  y2:r2.top+r2.height/2-fRect.top,
+      col1, col2, type:b.type
+    };
+  }).filter(Boolean);
+
+  let t=0, raf=null;
+
+  function frame(){
+    cx.clearRect(0,0,cv.width,cv.height);
+
+    lines.forEach((l,idx)=>{
+      const {x1,y1,x2,y2,col1,col2,type}=l;
+      // 主色用 col1，次色用 col2（用于渐变端点）
+      cx.save();
+
+      if(type==='laser'){
+        // 粒子流：底线极淡，3粒从 col1→col2 依次滑过
+        const grad=cx.createLinearGradient(x1,y1,x2,y2);
+        grad.addColorStop(0,col1+'28'); grad.addColorStop(1,col2+'28');
+        cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2);
+        cx.strokeStyle=grad; cx.lineWidth=2; cx.globalAlpha=1; cx.stroke();
+        for(let i=0;i<3;i++){
+          const ph=((t*0.55+i/3)%1);
+          const px=x1+(x2-x1)*ph, py=y1+(y2-y1)*ph;
+          const fade=Math.sin(ph*Math.PI);
+          const r1c=parseInt(col1.slice(1,3),16), g1c=parseInt(col1.slice(3,5),16), b1c=parseInt(col1.slice(5,7),16);
+          const r2c=parseInt(col2.slice(1,3),16), g2c=parseInt(col2.slice(3,5),16), b2c=parseInt(col2.slice(5,7),16);
+          const ri=Math.round(r1c+(r2c-r1c)*ph), gi=Math.round(g1c+(g2c-g1c)*ph), bi=Math.round(b1c+(b2c-b1c)*ph);
+          const pcol=`rgb(${ri},${gi},${bi})`;
+          const pp=Math.max(0,ph-0.08);
+          cx.beginPath();
+          cx.moveTo(x1+(x2-x1)*pp, y1+(y2-y1)*pp);
+          cx.lineTo(px,py);
+          cx.strokeStyle=pcol; cx.lineWidth=3.5; cx.globalAlpha=0.32*fade; cx.stroke();
+          cx.beginPath(); cx.arc(px,py,3,0,Math.PI*2);
+          cx.fillStyle=pcol; cx.globalAlpha=0.78*fade; cx.fill();
+        }
+
+      } else if(type==='broadcast'){
+        // 呼吸光晕：两端颜色渐变，整条线慢呼吸
+        const pulse=0.38+0.24*Math.sin(t*Math.PI*1.1+idx);
+        const segs=32;
+        for(let i=0;i<segs;i++){
+          const ta=i/segs, tb=(i+1)/segs, tm=(ta+tb)/2;
+          const fade=Math.sin(tm*Math.PI);
+          // 颜色插值
+          const r1c=parseInt(col1.slice(1,3),16), g1c=parseInt(col1.slice(3,5),16), b1c=parseInt(col1.slice(5,7),16);
+          const r2c=parseInt(col2.slice(1,3),16), g2c=parseInt(col2.slice(3,5),16), b2c=parseInt(col2.slice(5,7),16);
+          const ri=Math.round(r1c+(r2c-r1c)*tm), gi=Math.round(g1c+(g2c-g1c)*tm), bi=Math.round(b1c+(b2c-b1c)*tm);
+          const seg_col=`rgb(${ri},${gi},${bi})`;
+          cx.beginPath();
+          cx.moveTo(x1+(x2-x1)*ta, y1+(y2-y1)*ta);
+          cx.lineTo(x1+(x2-x1)*tb, y1+(y2-y1)*tb);
+          cx.strokeStyle=seg_col; cx.lineWidth=12; cx.globalAlpha=pulse*fade*0.07; cx.stroke();
+          cx.beginPath();
+          cx.moveTo(x1+(x2-x1)*ta, y1+(y2-y1)*ta);
+          cx.lineTo(x1+(x2-x1)*tb, y1+(y2-y1)*tb);
+          cx.strokeStyle=seg_col; cx.lineWidth=2.5; cx.globalAlpha=pulse*fade*0.75; cx.stroke();
+        }
+
+      } else if(type==='focus'){
+        // 聚焦：双光晕，两个光球对向流动在中点消散（方案A）
+        const focusG=cx.createLinearGradient(x1,y1,x2,y2);
+        focusG.addColorStop(0,`rgba(${parseInt(col1.slice(1,3),16)},${parseInt(col1.slice(3,5),16)},${parseInt(col1.slice(5,7),16)},0.14)`);
+        focusG.addColorStop(1,`rgba(${parseInt(col2.slice(1,3),16)},${parseInt(col2.slice(3,5),16)},${parseInt(col2.slice(5,7),16)},0.14)`);
+        cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2);
+        cx.strokeStyle=focusG; cx.lineWidth=1.5; cx.globalAlpha=1; cx.stroke();
+        for(let i=0;i<2;i++){
+          const ph=((t*0.38+i*0.5)%1);
+          const px=x1+(x2-x1)*ph, py=y1+(y2-y1)*ph;
+          const fade=Math.sin(ph*Math.PI);
+          const fr1=parseInt(col1.slice(1,3),16),fg1=parseInt(col1.slice(3,5),16),fb1=parseInt(col1.slice(5,7),16);
+          const fr2=parseInt(col2.slice(1,3),16),fg2=parseInt(col2.slice(3,5),16),fb2=parseInt(col2.slice(5,7),16);
+          const pcol=`rgb(${Math.round(fr1+(fr2-fr1)*ph)},${Math.round(fg1+(fg2-fg1)*ph)},${Math.round(fb1+(fb2-fb1)*ph)})`;
+          [16,9,3.5].forEach((r,ri)=>{
+            cx.beginPath(); cx.arc(px,py,r,0,Math.PI*2);
+            cx.fillStyle=pcol; cx.globalAlpha=[0.07,0.18,0.68][ri]*fade; cx.fill();
+          });
+        }
+
+      } else if(type==='resonance'){
+        // 共鸣：彗星拖尾（方案B）
+        const ph=(t*0.40+idx*0.25)%1;
+        const px=x1+(x2-x1)*ph, py=y1+(y2-y1)*ph;
+        const fade=Math.sin(ph*Math.PI);
+        const rG=cx.createLinearGradient(x1,y1,x2,y2);
+        rG.addColorStop(0,`rgba(${parseInt(col1.slice(1,3),16)},${parseInt(col1.slice(3,5),16)},${parseInt(col1.slice(5,7),16)},0.13)`);
+        rG.addColorStop(1,`rgba(${parseInt(col2.slice(1,3),16)},${parseInt(col2.slice(3,5),16)},${parseInt(col2.slice(5,7),16)},0.13)`);
+        cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2);
+        cx.strokeStyle=rG; cx.lineWidth=2; cx.globalAlpha=1; cx.stroke();
+        const steps=20;
+        for(let i=0;i<steps;i++){
+          const tp=Math.max(0,ph-0.22*(i/steps));
+          const tp2=Math.max(0,ph-0.22*((i+1)/steps));
+          const inten=1-i/steps;
+          const tr1=parseInt(col1.slice(1,3),16),tg1=parseInt(col1.slice(3,5),16),tb1=parseInt(col1.slice(5,7),16);
+          const tr2=parseInt(col2.slice(1,3),16),tg2=parseInt(col2.slice(3,5),16),tb2=parseInt(col2.slice(5,7),16);
+          cx.beginPath();
+          cx.moveTo(x1+(x2-x1)*tp2, y1+(y2-y1)*tp2);
+          cx.lineTo(x1+(x2-x1)*tp,  y1+(y2-y1)*tp);
+          cx.strokeStyle=`rgb(${Math.round(tr1+(tr2-tr1)*tp)},${Math.round(tg1+(tg2-tg1)*tp)},${Math.round(tb1+(tb2-tb1)*tp)})`;
+          cx.lineWidth=4*inten; cx.globalAlpha=fade*inten*0.72; cx.stroke();
+        }
+        cx.beginPath(); cx.arc(px,py,3.5,0,Math.PI*2);
+        cx.fillStyle='#fff'; cx.globalAlpha=0.90*fade; cx.fill();
+        cx.beginPath(); cx.arc(px,py,2,0,Math.PI*2);
+        const hr1=parseInt(col1.slice(1,3),16),hg1=parseInt(col1.slice(3,5),16),hb1=parseInt(col1.slice(5,7),16);
+        const hr2=parseInt(col2.slice(1,3),16),hg2=parseInt(col2.slice(3,5),16),hb2=parseInt(col2.slice(5,7),16);
+        cx.fillStyle=`rgb(${Math.round(hr1+(hr2-hr1)*ph)},${Math.round(hg1+(hg2-hg1)*ph)},${Math.round(hb1+(hb2-hb1)*ph)})`;
+        cx.globalAlpha=fade; cx.fill();
+      }
+
+      cx.restore();
+    });
+
+    t+=0.013;
+    raf=requestAnimationFrame(frame);
+  }
+
+  frame();
+
+  // 保存停止句柄，方便外部清理
+  cv._stopAnim=()=>{ if(raf) cancelAnimationFrame(raf); };
+}
+
+// ═══════════════════════════════════════════════════════════
+// 颜色传播引擎（含模块染色 & 羁绊系统）
+// ═══════════════════════════════════════════════════════════
+
+// ===== 羁绊检测 =====
+// 扫描棋盘上所有相邻的模块对，检测是否触发羁绊效果
+function detectBonds(){
+  const sz=G.size;
+  const bonds=[];
+  for(let r=0;r<sz;r++) for(let c=0;c<sz;c++){
+    const mod=G.grid[r][c];
+    if(!mod) continue;
+    // 只检查右方和下方的邻居，避免重复检测
+    for(const [dr,dc] of [[0,1],[1,0]]){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<sz&&nc>=0&&nc<sz&&G.grid[nr][nc]){
+        const adj=G.grid[nr][nc];
+        let bondType=null;
+        // 激光羁绊：三角+三角 → 光束扩展为3格宽
+        if(mod.shape==='triangle'&&adj.shape==='triangle') bondType='laser';
+        // 广播羁绊：圆形+方块 → 方块获得对角线传播
+        else if((mod.shape==='circle'&&adj.shape==='square')||(mod.shape==='square'&&adj.shape==='circle')) bondType='broadcast';
+        // 聚焦羁绊：三角+圆形 → 圆形扩至5×5，三角获侧面溅射
+        else if((mod.shape==='triangle'&&adj.shape==='circle')||(mod.shape==='circle'&&adj.shape==='triangle')) bondType='focus';
+        // 共鸣羁绊：同色但不同形状 → 传播距离延伸至2格
+        if(mod.color===adj.color&&mod.shape!==adj.shape) bondType=bondType||'resonance';
+        if(bondType) bonds.push({r1:r,c1:c,r2:nr,c2:nc,type:bondType});
+      }
+    }
+  }
+  G.bonds=bonds;
+  return bonds;
+}
+
+// ===== 获取模块在羁绊加持下的目标格子 =====
+// 根据模块形状和已触发的羁绊，计算该模块能影响到的所有格子
+function getBondedTargets(r,c,mod,sz,bonds){
+  let targetCells=[];
+  // 检查该模块是否拥有某种羁绊
+  const hasBond=(type)=>bonds.some(b=>
+    (b.type===type&&((b.r1===r&&b.c1===c)||(b.r2===r&&b.c2===c))));
+
+  if(mod.shape==='triangle'){
+    // 基础：沿尖角方向的直线射线
+    const rayCells=getTriangleRayCells(r,c,mod.rotation,sz);
+    targetCells=rayCells.slice();
+    // 激光羁绊：射线加宽，两侧各扩展1格（3格宽走廊）
+    if(hasBond('laser')){
+      const [dr,dc]=getTriTipDir(mod.rotation);
+      const perps=dc===0?[[0,-1],[0,1]]:[[-1,0],[1,0]];  // 垂直于射线方向
+      for(const rc of rayCells){
+        for(const [pr,pc] of perps){
+          const sr=rc.r+pr, sc=rc.c+pc;
+          if(sr>=0&&sr<sz&&sc>=0&&sc<sz) targetCells.push({r:sr,c:sc});
+        }
+      }
+    }
+    // 聚焦羁绊：三角形射线前2格获得侧面溅射
+    if(hasBond('focus')){
+      const [dr,dc]=getTriTipDir(mod.rotation);
+      const perps=dc===0?[[0,-1],[0,1]]:[[-1,0],[1,0]];
+      for(let i=0;i<Math.min(2,rayCells.length);i++){
+        for(const [pr,pc] of perps){
+          const sr=rayCells[i].r+pr, sc=rayCells[i].c+pc;
+          if(sr>=0&&sr<sz&&sc>=0&&sc<sz) targetCells.push({r:sr,c:sc});
+        }
+      }
+    }
+  } else if(mod.shape==='circle'){
+    // 基础：3×3 邻域
+    targetCells=getCircleAreaCells(r,c,sz);
+    // 聚焦羁绊：圆形扩展到 5×5 范围
+    if(hasBond('focus')){
+      for(let dr=-2;dr<=2;dr++) for(let dc=-2;dc<=2;dc++){
+        if(dr===0&&dc===0) continue;
+        if(Math.abs(dr)<=1&&Math.abs(dc)<=1) continue; // 已在 3×3 中
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0&&nr<sz&&nc>=0&&nc<sz) targetCells.push({r:nr,c:nc});
+      }
+    }
+    // 共鸣羁绊：圆形额外向正交方向延伸2格
+    if(hasBond('resonance')){
+      for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+        const nr=r+dr*2, nc=c+dc*2;
+        if(nr>=0&&nr<sz&&nc>=0&&nc<sz) targetCells.push({r:nr,c:nc});
+      }
+    }
+  } else { // 方块
+    // 基础：四个正交邻居
+    targetCells=getSquareNeighbors(r,c,sz);
+    // 广播羁绊：方块额外获得对角线传播（变成8方向）
+    if(hasBond('broadcast')){
+      for(const [dr,dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]){
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0&&nr<sz&&nc>=0&&nc<sz) targetCells.push({r:nr,c:nc});
+      }
+    }
+    // 共鸣羁绊：方块正交传播距离扩展到2格
+    if(hasBond('resonance')){
+      for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+        const nr=r+dr*2, nc=c+dc*2;
+        if(nr>=0&&nr<sz&&nc>=0&&nc<sz) targetCells.push({r:nr,c:nc});
+      }
+    }
+  }
+  return targetCells;
+}
+
+// ===== 颜色传播主函数 =====
+// 核心算法：迭代传播颜色，模块可被染色并传播新颜色
+function propagateColors(){
+  const sz=G.size;
+  const bonds=detectBonds();  // 先检测所有羁绊
+
+  // 重置颜色图和染色状态
+  G.colorMap=Array.from({length:sz},()=>Array(sz).fill(null));
+  // 跟踪每个模块的有效（染色后）颜色
+  const dyedColor=Array.from({length:sz},()=>Array(sz).fill(null));
+
+  // 初始化：每个模块以自身原始颜色开始
+  for(let r=0;r<sz;r++) for(let c=0;c<sz;c++){
+    const mod=G.grid[r][c];
+    if(mod){
+      dyedColor[r][c]=mod.color;
+      G.colorMap[r][c]=mod.color;
+    }
+  }
+
+  // 迭代传播（最多5轮，直到颜色稳定不再变化）
+  const MAX_ITER=5;
+  for(let iter=0;iter<MAX_ITER;iter++){
+    // received[r][c] 记录每个格子本轮收到的所有颜色
+    const received=Array.from({length:sz},()=>Array.from({length:sz},()=>[]));
+    let changed=false;
+
+    // 每个模块向目标格子传播其当前染色后的颜色
+    for(let r=0;r<sz;r++) for(let c=0;c<sz;c++){
+      const mod=G.grid[r][c];
+      if(!mod) continue;
+      const curColor=dyedColor[r][c];
+      if(!curColor) continue;
+
+      const targetCells=getBondedTargets(r,c,mod,sz,bonds);
+      for(const {r:nr,c:nc} of targetCells){
+        received[nr][nc].push(curColor);
+      }
+    }
+
+    // 应用接收到的颜色
+    for(let r=0;r<sz;r++) for(let c=0;c<sz;c++){
+      const recv=received[r][c];
+      if(!recv.length) continue;
+      const mod=G.grid[r][c];
+      if(mod){
+        // 模块被染色：将自身原始颜色与所有入射颜色混合
+        const newDyed=mixMultiple([mod.color,...recv]);
+        if(newDyed!==dyedColor[r][c]){
+          dyedColor[r][c]=newDyed;
+          changed=true;  // 颜色发生变化，需要继续迭代
+        }
+        G.colorMap[r][c]=newDyed;
+      } else {
+        // 空格子：直接接收颜色
+        const existing=G.colorMap[r][c];
+        const all=existing?[existing,...recv]:recv;
+        const newColor=mixMultiple(all);
+        if(newColor!==G.colorMap[r][c]) changed=true;
+        G.colorMap[r][c]=newColor;
+      }
+    }
+
+    if(!changed) break; // 颜色已稳定，提前结束迭代
+  }
+
+  // 更新所有格子的视觉效果（包括染色显示）
+  for(let r=0;r<sz;r++) for(let c=0;c<sz;c++){
+    renderCell(r,c,dyedColor[r][c]);
+  }
+
+  // 显示羁绊连线
+  renderBonds(bonds);
+
+  // 检查关键点是否匹配
+  checkKeyPoints();
+}
+
+// ===== 多颜色混合 =====
+// 将多个颜色混合为一个结果颜色
+// 规则：先拆解为基础色（红/蓝/黄），再组合
+function mixMultiple(colors){
+  if(!colors.length) return null;
+  const unique=new Set();
+  // 将混合色拆解为基础色
+  for(const c of colors){
+    if(c==='purple'){unique.add('red');unique.add('blue')}          // 紫 = 红+蓝
+    else if(c==='orange'){unique.add('red');unique.add('yellow')}   // 橙 = 红+黄
+    else if(c==='green'){unique.add('blue');unique.add('yellow')}   // 绿 = 蓝+黄
+    else unique.add(c);
+  }
+  const bases=[...unique].filter(c=>BCOLS.includes(c)).sort();
+  if(bases.length===1) return bases[0];          // 只有一种基础色
+  if(bases.length===2){
+    const key=bases[0]+'+'+bases[1];
+    return MIX[key]||bases[0];                   // 两种基础色混合
+  }
+  if(bases.length>=3) return 'white';            // 三种基础色混合 = 白色
+  return colors[0];
+}
+
+// ===== 检查关键点匹配状态 =====
+function checkKeyPoints(){
+  let matched=0;
+  let newlyMatched=0;
+  G.keyPoints.forEach((kp,i)=>{
+    const wasMatched=kp.matched;
+    const cm=G.colorMap[kp.r][kp.c];
+    const cel=document.querySelector(`.cell[data-r="${kp.r}"][data-c="${kp.c}"]`);
+    if(cm===kp.color){
+      kp.matched=true; matched++;
+      if(!wasMatched) newlyMatched++;
+      cel.classList.add('kp-matched');
+      cel.style.setProperty('--kp-color',CHEX[kp.color]+'55');
+    } else {
+      kp.matched=false;
+      cel.classList.remove('kp-matched');
+    }
+  });
+  if(newlyMatched>0&&typeof AudioSys!=='undefined'){
+    setTimeout(()=>AudioSys.sfxMatch(newlyMatched),30);
+  }
+  const sk=document.getElementById('s-kp');
+  if(sk) sk.textContent=`${matched}/${G.keyPoints.length}`;
+}
+
+// ===== 格子闪烁反馈 =====
+function flash(r,c,cls){
+  const cel=document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+  cel.classList.remove('fb-ok','fb-part','fb-bad');
+  void cel.offsetWidth;  // 强制回流以重新触发动画
+  cel.classList.add(cls);
+}
+
+// ===== 胜利检测 =====
+function checkWin(){
+  if(G.keyPoints.every(kp=>kp.matched)){
+    G.won=true;
+    G.elapsed=Math.floor((Date.now()-G.startTime)/1000);
+    stopTimer();
+    victory();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 胜利处理
+// ═══════════════════════════════════════════════════════════
+function victory(){
+  // 解锁下一关
+  unlockedLevels.add(Math.min(G.level+1, LEVELS.length-1));
+  // 逐个给匹配成功的关键点添加发光动画
+  G.keyPoints.forEach((kp,i)=>{
+    setTimeout(()=>{
+      const cel=document.querySelector(`.cell[data-r="${kp.r}"][data-c="${kp.c}"]`);
+      cel.style.transition='all .5s ease';
+      cel.style.boxShadow=`0 0 30px ${CHEX[kp.color]}88, inset 0 0 16px ${CHEX[kp.color]}44`;
+    },i*150);  // 依次延迟
+  });
+
+  setTimeout(()=>{
+    // 根据完成时间确定评级
+    const t=G.elapsed;
+    const [t1,t2,t3]=G.times;
+    let rating=0; // 0=圆形(慢), 1=方块(中), 2=三角(快)
+    if(t<=t1) rating=2;       // 在 t1 时间内完成 = 最高评级
+    else if(t<=t2) rating=1;  // 在 t2 时间内完成 = 中等评级
+    else rating=0;             // 否则 = 基本评级
+
+    // 保存该关评级（取最好成绩）
+    if(levelRatings[G.level]==null || rating > levelRatings[G.level]) levelRatings[G.level]=rating;
+
+    // 填充胜利画面数据
+    document.getElementById('v-time').textContent=fmtTime(G.elapsed);
+    document.getElementById('v-moves').textContent=G.moves;
+
+    // 生成评级图标
+    const vr=document.getElementById('vic-rating');
+    vr.innerHTML='';
+    const types=['circle','square','triangle'];
+    const colors=[CHEX.red,CHEX.blue,CHEX.green];
+    types.forEach((tp,i)=>{
+      const d=document.createElement('div');
+      d.className='vic-rating-shape'+(i<=rating?' earned':'');
+      d.innerHTML=ratingSvg(tp,i<=rating?colors[i]:'#444',.85);
+      vr.appendChild(d);
+      if(i<=rating) setTimeout(()=>d.style.transform='scale(1.15)',i*300+200);
+    });
+
+    // 如果通过最后一关，直接播放恭喜/致谢字幕，跳过胜利画面
+    if(G.level === LEVELS.length - 1){
+      playCredits();
+    } else {
+      document.getElementById('vic').classList.remove('hidden');
+      particles();  // 播放粒子特效
+    }
+  }, G.keyPoints.length*150+400);
+}
+
+// 提示功能（已移除）
+function useHint(){}
+
+// ===== 重置棋盘 =====
+function resetBoard(){
+  // 将所有已放置的模块归还库存
+  for(let r=0;r<G.size;r++) for(let c=0;c<G.size;c++){
+    const mod=G.grid[r][c];
+    if(mod){G.inventory[mod.shape][mod.color]++;G.grid[r][c]=null}
+  }
+  G.moves=0;G.colorMap=Array.from({length:G.size},()=>Array(G.size).fill(null));
+  G.bonds=[];
+  G.keyPoints.forEach(kp=>kp.matched=false);
+  document.querySelectorAll('.bond-svg-overlay').forEach(el=>{if(el._stopAnim)el._stopAnim();el.remove();});
+  buildBoard();buildTray();buildKPLegend();stats();
+  // 注意：计时器不重置，继续计时
+}
+
+// ===== 统计数据更新 =====
+function stats(){
+  const sm=document.getElementById('s-moves');
+  const sk=document.getElementById('s-kp');
+  if(sm) sm.textContent=G.moves;
+  if(sk){const m=G.keyPoints.filter(kp=>kp.matched).length;sk.textContent=`${m}/${G.keyPoints.length}`;}
+}
+// 消息显示（已移除）
+function msg(t){}
+
+// ===== 胜利粒子特效 =====
+function particles(){
+  const cv=document.getElementById('fx'),cx=cv.getContext('2d');
+  cv.width=innerWidth;cv.height=innerHeight;
+  const ps=[],cols=['#3bff8b','#3b8bff','#b850ff','#ff3b5c','#ffd93b','#ff8c3b'];
+  // 生成100个粒子
+  for(let i=0;i<100;i++) ps.push({
+    x:cv.width/2+(Math.random()-.5)*300,   // 从屏幕中心附近开始
+    y:cv.height/2+(Math.random()-.5)*300,
+    vx:(Math.random()-.5)*10,               // 随机水平速度
+    vy:(Math.random()-.5)*10-4,             // 随机垂直速度（偏上）
+    r:Math.random()*4.5+1.5,                // 粒子半径
+    c:cols[Math.floor(Math.random()*6)],    // 随机颜色
+    life:1,                                  // 生命值（1→0）
+    d:.005+Math.random()*.008               // 衰减速度
+  });
+  // 动画循环
+  (function a(){
+    cx.clearRect(0,0,cv.width,cv.height);let alive=false;
+    for(const p of ps){
+      if(p.life<=0)continue;alive=true;
+      p.x+=p.vx;p.y+=p.vy;p.vy+=.06;p.life-=p.d;  // 物理模拟：重力+衰减
+      cx.globalAlpha=p.life*.75;cx.fillStyle=p.c;
+      cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);cx.fill();
+      // 外发光
+      cx.globalAlpha=p.life*.15;
+      cx.beginPath();cx.arc(p.x,p.y,p.r*3,0,Math.PI*2);cx.fill();
+    }
+    cx.globalAlpha=1;
+    if(alive)requestAnimationFrame(a);else cx.clearRect(0,0,cv.width,cv.height);
+  })();
+}
+
+// ═══════════════════════════════════════════════════════════
+// 背景粒子动画
+// ═══════════════════════════════════════════════════════════
+(function bgAnim(){
+  const cv=document.getElementById('bg-cv'),cx=cv.getContext('2d');
+  let w,h;
+  function resize(){w=cv.width=innerWidth;h=cv.height=innerHeight}
+  resize();addEventListener('resize',resize);
+  // 生成50个背景漂浮粒子
+  const dots=[];
+  for(let i=0;i<50;i++) dots.push({
+    x:Math.random()*2000,y:Math.random()*2000,
+    vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,
+    r:Math.random()*1.2+.4,          // 半径
+    a:Math.random()*.12+.02           // 透明度
+  });
+  function draw(){
+    cx.clearRect(0,0,w,h);
+    // 左上紫色光晕
+    const g1=cx.createRadialGradient(w*.2,h*.3,0,w*.2,h*.3,380);
+    g1.addColorStop(0,'rgba(184,80,255,.05)');g1.addColorStop(1,'transparent');
+    cx.fillStyle=g1;cx.fillRect(0,0,w,h);
+    // 右下蓝色光晕
+    const g2=cx.createRadialGradient(w*.8,h*.7,0,w*.8,h*.7,320);
+    g2.addColorStop(0,'rgba(59,139,255,.04)');g2.addColorStop(1,'transparent');
+    cx.fillStyle=g2;cx.fillRect(0,0,w,h);
+    // 绘制漂浮粒子
+    for(const d of dots){
+      d.x+=d.vx;d.y+=d.vy;
+      if(d.x<0)d.x=w;if(d.x>w)d.x=0;if(d.y<0)d.y=h;if(d.y>h)d.y=0;  // 边界回绕
+      cx.globalAlpha=d.a;cx.fillStyle='#fff';
+      cx.beginPath();cx.arc(d.x,d.y,d.r,0,Math.PI*2);cx.fill();
+    }
+    cx.globalAlpha=1;requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 初始化
+// ═══════════════════════════════════════════════════════════
+buildCards();          // 生成关卡选择卡片
+showScr('scr-splash'); // 显示开屏页面
+
+// 全局拖放事件：支持将模块拖到页面任意位置删除
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{
+  if(e.target.closest('.cell')||e.target.closest('.board-frame')) return;
+  e.preventDefault();
+  try{
+    const d=JSON.parse(e.dataTransfer.getData('text/plain'));
+    if(d.fromR!=null) removeMod(d.fromR,d.fromC);
+  }catch(err){}
+});
+
+// 从开屏进入关卡选择（带过场动画）
+function goToLevelSelect(){playCutscene(()=>{showScr('scr-title');buildCards();});}
+
+// ═══════════════════════════════════════════════════════════
+// 过场动画（CUTSCENE）
+// ═══════════════════════════════════════════════════════════
+// 在 3×3 的小棋盘上演示游戏玩法，无文字，纯图形
+// 时间线：
+//   0-1.5s   网格淡入 + 橙色关键点环在(2,2)脉冲
+//   1.5-3s   红色三角形落入(1,0)，尖角朝上
+//   3.2-4s   三角形旋转到尖角朝右(rot=90)
+//   4-5s     红色光束向右扫过第1行
+//   5.5-7s   黄色圆形落入(1,2)
+//   7.2-8.2s 圆形被光束染色为橙色
+//   8.2-9.5s 圆形辐射橙色到邻居，包括(2,2)
+//   9.5-10.3s 关键点匹配成功，发光
+//   10-11.2s 粒子庆祝
+//   12-13s   淡出到黑色
+function playCutscene(onDone){
+  showScr('scr-cut');
+  const cv=document.getElementById('cut-cv');
+  const cx=cv.getContext('2d');
+  cv.width=cv.offsetWidth||innerWidth;
+  cv.height=cv.offsetHeight||innerHeight;
+  const W=cv.width,H=cv.height;
+
+  const HEX={red:'#ff3b5c',blue:'#3b8bff',yellow:'#ffd93b',
+             purple:'#b850ff',orange:'#ff8c3b',green:'#3bff8b'};
+
+  // 3×3 网格居中显示
+  const N=3,CS=Math.min(W,H)*0.16,GAP=CS*0.1,STEP=CS+GAP;
+  const OX=W/2-(N-1)*STEP/2,OY=H/2-(N-1)*STEP/2;
+  const gx=c=>OX+c*STEP,gy=r=>OY+r*STEP;  // 格子中心坐标
+
+  // 缓动函数
+  const eo=t=>1-Math.pow(1-t,3);                                    // ease-out
+  const ei=t=>t<.5?4*t*t*t:(1-Math.pow(-2*t+2,3)/2);              // ease-in-out
+  const bn=t=>{const n=7.5625,d=2.75;                               // bounce
+    if(t<1/d)return n*t*t;
+    if(t<2/d)return n*(t-=1.5/d)*t+.75;
+    if(t<2.5/d)return n*(t-=2.25/d)*t+.9375;
+    return n*(t-=2.625/d)*t+.984375;};
+  const pp=(el,a,b)=>Math.max(0,Math.min(1,(el-a)/(b-a)));         // 进度归一化
+
+  const h=c=>(c&&c[0]==='#')?c:(HEX[c]||'#ffffff');
+
+  // 绘制格子边框
+  function dCell(r,c,alpha){
+    cx.save();cx.globalAlpha=alpha;
+    cx.strokeStyle='rgba(255,255,255,0.2)';cx.lineWidth=1.5;
+    cx.fillStyle='rgba(255,255,255,0.018)';
+    const x=gx(c),y=gy(r),rad=CS*0.08;
+    cx.beginPath();cx.roundRect(x-CS/2,y-CS/2,CS,CS,rad);
+    cx.fill();cx.stroke();
+    cx.restore();
+  }
+
+  // 绘制格子颜色光晕
+  function dGlow(r,c,color,alpha){
+    const hx=h(color),x=gx(c),y=gy(r),rad=CS*0.08;
+    cx.save();cx.globalAlpha=alpha;
+    cx.shadowColor=hx;cx.shadowBlur=22;
+    cx.fillStyle=hx+'33';
+    cx.beginPath();cx.roundRect(x-CS/2,y-CS/2,CS,CS,rad);cx.fill();
+    cx.restore();
+  }
+
+  // 绘制关键点虚线圆环
+  function dKP(r,c,color,alpha,solid){
+    const hx=h(color),x=gx(c),y=gy(r);
+    cx.save();cx.globalAlpha=alpha;
+    cx.shadowColor=hx;cx.shadowBlur=10;
+    cx.strokeStyle=hx;cx.lineWidth=2;
+    if(!solid)cx.setLineDash([5,4]);
+    cx.beginPath();cx.arc(x,y,CS*0.3,0,Math.PI*2);cx.stroke();
+    cx.setLineDash([]);cx.restore();
+  }
+
+  // 绘制形状（三角/方块/圆形）
+  function dShape(r,c,shape,color,rotDeg,alpha,yOff){
+    const hx=h(color),x=gx(c),y=gy(r)+(yOff||0);
+    cx.save();cx.globalAlpha=alpha;
+    cx.shadowColor=hx;cx.shadowBlur=CS*0.24;
+    cx.translate(x,y);
+    const sc=CS/64;
+    if(shape==='triangle'){
+      cx.rotate(rotDeg*Math.PI/180);
+      cx.beginPath();
+      cx.moveTo((32-32)*sc,(7-32)*sc);
+      cx.lineTo((57-32)*sc,(53-32)*sc);
+      cx.lineTo((7-32)*sc,(53-32)*sc);
+      cx.closePath();
+    } else if(shape==='square'){
+      cx.beginPath();cx.roundRect(-21*sc,-21*sc,42*sc,42*sc,5*sc);
+    } else {
+      cx.beginPath();cx.arc(0,0,21*sc,0,Math.PI*2);
+    }
+    cx.fillStyle=hx+'bb';cx.fill();
+    cx.strokeStyle=hx;cx.lineWidth=2;cx.stroke();
+    cx.restore();
+  }
+
+  // 绘制三角形射线
+  function dBeam(r,c,rotDeg,color,progress,alpha){
+    const hx=h(color);
+    const sc=CS/64,tipDx=0,tipDy=-25*sc;
+    const rad=rotDeg*Math.PI/180;
+    const tsx=gx(c)+tipDx*Math.cos(rad)-tipDy*Math.sin(rad);
+    const tsy=gy(r)+tipDx*Math.sin(rad)+tipDy*Math.cos(rad);
+    const ri=Math.round(((rotDeg%360)+360)%360/90)%4;
+    const DR=[[-1,0],[0,1],[1,0],[0,-1]];
+    const [dr,dc]=DR[ri];
+    let er=r,ec=c;
+    while(er+dr>=0&&er+dr<N&&ec+dc>=0&&ec+dc<N){er+=dr;ec+=dc;}
+    const ex2=gx(ec)+dc*(CS*0.5),ey2=gy(er)+dr*(CS*0.5);
+    const ex=tsx+(ex2-tsx)*progress,ey=tsy+(ey2-tsy)*progress;
+    cx.save();cx.globalAlpha=alpha;
+    cx.shadowColor=hx;cx.shadowBlur=20;
+    cx.strokeStyle=hx;cx.lineWidth=3;cx.lineCap='round';
+    cx.beginPath();cx.moveTo(tsx,tsy);cx.lineTo(ex,ey);cx.stroke();
+    cx.fillStyle='#fff';cx.shadowBlur=24;
+    cx.beginPath();cx.arc(ex,ey,4,0,Math.PI*2);cx.fill();
+    cx.restore();
+  }
+
+  // 绘制圆形辐射线
+  function dRadiate(r,c,color,progress,alpha){
+    const hx=h(color),x=gx(c),y=gy(r);
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      if(!dr&&!dc)continue;
+      const nr=r+dr,nc=c+dc;
+      if(nr<0||nr>=N||nc<0||nc>=N)continue;
+      const tx=gx(nc),ty=gy(nr),ex=x+(tx-x)*progress,ey=y+(ty-y)*progress;
+      cx.save();cx.globalAlpha=alpha*(1-progress*0.5);
+      cx.shadowColor=hx;cx.shadowBlur=14;
+      cx.strokeStyle=hx;cx.lineWidth=2.5;cx.lineCap='round';
+      cx.beginPath();cx.moveTo(x,y);cx.lineTo(ex,ey);cx.stroke();
+      cx.restore();
+    }
+  }
+
+  const TOTAL=14000;  // 总动画时长 14 秒
+  let t0=null,raf=null,done=false;
+
+  function frame(ts){
+    if(done)return;
+    if(!t0)t0=ts;
+    const el=ts-t0;   // 已经过的毫秒数
+    cx.clearRect(0,0,W,H);
+
+    // ── 网格淡入（0-1.5s）──
+    const gA=eo(pp(el,0,1500));
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++)dCell(r,c,gA);
+
+    // ── 关键点环在(2,2)脉冲（0.6s开始）──
+    const kA=eo(pp(el,600,2000));
+    const pulse=0.5+0.5*Math.sin(el*0.004);
+    const matched=el>=9500;  // 9.5秒后视为匹配
+    if(kA>0){
+      if(!matched){
+        dKP(2,2,'orange',kA*(0.45+0.45*pulse),false);  // 虚线脉冲
+      } else {
+        const mP=eo(pp(el,9500,10300));
+        dKP(2,2,'orange',0.9,true);  // 实线（匹配成功）
+        dGlow(2,2,'orange',mP*0.6);
+        // 额外发光圆环
+        cx.save();cx.globalAlpha=mP*(0.35+0.35*Math.sin(el*0.02));
+        cx.shadowColor=HEX.orange;cx.shadowBlur=40;
+        cx.strokeStyle=HEX.orange;cx.lineWidth=3;
+        cx.beginPath();cx.arc(gx(2),gy(2),CS*0.4,0,Math.PI*2);cx.stroke();
+        cx.restore();
+      }
+    }
+
+    // ── 红色三角形落入(1,0)，先朝上(rot=0)再旋转到朝右(rot=90) ──
+    const triA=eo(pp(el,1500,2400));       // 淡入
+    const triDP=pp(el,1500,3000);           // 下落进度
+    const triYoff=triDP<1?-(1-bn(triDP))*H*0.28:0;  // 弹跳落下
+    const triRotP=eo(pp(el,3200,4000));    // 旋转进度 (0°→90°)
+    const triRot=triRotP*90;
+    if(triA>0){
+      dShape(1,0,'triangle','red',triRot,triA,triYoff);
+      if(triDP>0.2)dGlow(1,0,'red',triA*0.18);
+    }
+
+    // ── 光束路径显示（旋转完成后 4s 开始）──
+    const beamAppear=eo(pp(el,4000,5000));
+    const beam11=beamAppear;                                    // (1,1) 持续红色光晕
+    const beam12=beamAppear*(1-eo(pp(el,7200,8200)));          // (1,2) 后续被染色后淡出
+
+    if(triA>0){
+      if(beam11>0) dGlow(1,1,'red',beam11*0.38);
+      if(beam12>0) dGlow(1,2,'red',beam12*0.38);
+    }
+
+    // ── 黄色圆形落入(1,2)：5.5-7s ──
+    const cirA=eo(pp(el,5500,6400));
+    const cirDP=pp(el,5500,7000);
+    const cirYoff=cirDP<1?-(1-bn(cirDP))*H*0.28:0;
+    // 7s后被红光染色 黄→橙
+    const cirDye=ei(pp(el,7200,8200));
+    const cirColor=cirDye>0?lerpColor(HEX.yellow,HEX.orange,cirDye):HEX.yellow;
+    if(cirA>0){
+      dShape(1,2,'circle',cirColor,0,cirA,cirYoff);
+      dGlow(1,2,cirColor,cirA*0.2);
+    }
+
+    // ── 圆形辐射到邻居（8.2s+）──
+    const radP=eo(pp(el,8200,9500));
+    if(radP>0&&cirA>0){
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        if(!dr&&!dc) continue;
+        const nr=1+dr, nc=2+dc;
+        if(nr<0||nr>=N||nc<0||nc>=N) continue;
+        dGlow(nr,nc,cirColor,radP*0.42*cirA);
+      }
+    }
+
+    // ── 胜利粒子（10-11.2s）──
+    const partP=pp(el,10000,11200);
+    if(partP>0){
+      const pc=[HEX.orange,HEX.red,HEX.yellow,'#ffffff'];
+      for(let i=0;i<18;i++){
+        const ang=(i/18)*Math.PI*2+partP*2.5,dist=CS*(0.4+partP*1.5);
+        cx.save();cx.globalAlpha=(1-partP)*0.9;
+        cx.shadowColor=pc[i%4];cx.shadowBlur=8;cx.fillStyle=pc[i%4];
+        cx.beginPath();cx.arc(gx(2)+Math.cos(ang)*dist,gy(2)+Math.sin(ang)*dist,
+          2+partP*4,0,Math.PI*2);cx.fill();cx.restore();
+      }
+    }
+
+    // ── 淡出到黑色（12-13s）──
+    const fadeP=ei(pp(el,12000,13000));
+    if(fadeP>0){
+      cx.save();cx.globalAlpha=fadeP;cx.fillStyle='#06060e';
+      cx.fillRect(0,0,W,H);cx.restore();
+    }
+
+    // 动画结束
+    if(el>=TOTAL&&!done){done=true;cancelAnimationFrame(raf);onDone();return;}
+    raf=requestAnimationFrame(frame);
+  }
+
+  // 点击或触摸跳过过场动画
+  const skip=()=>{if(done)return;done=true;cancelAnimationFrame(raf);cx.clearRect(0,0,W,H);onDone();};
+  cv.addEventListener('click',skip,{once:true});
+  cv.addEventListener('touchstart',skip,{once:true,passive:true});
+  raf=requestAnimationFrame(frame);
+}
+
+// ===== 颜色线性插值（用于过场动画的颜色渐变）=====
+function lerpColor(a,b,t){
+  const ah=parseInt(a.slice(1),16), bh=parseInt(b.slice(1),16);
+  const ar=(ah>>16)&255,ag=(ah>>8)&255,ab=ah&255;
+  const br=(bh>>16)&255,bg=(bh>>8)&255,bb=bh&255;
+  const r=Math.round(ar+(br-ar)*t),g=Math.round(ag+(bg-ag)*t),bl2=Math.round(ab+(bb-ab)*t);
+  return '#'+[r,g,bl2].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+// 十六进制转 RGB 字符串
+function hexToRgb(hex){
+  const h=parseInt(hex.replace('#',''),16);
+  return `${(h>>16)&255},${(h>>8)&255},${h&255}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// 关卡选择页面 — 磨砂玻璃形状碰撞背景动画
+// ═══════════════════════════════════════════════════════════
+(function(){
+  const cv = document.getElementById('title-shapes-cv');
+  const cx = cv.getContext('2d');
+
+  // 形状定义（三种类型）
+  const SHAPE_TYPES = ['triangle', 'square', 'circle'];
+  // 颜色配置：使用游戏主题色，低透明度
+  const SHAPE_COLORS = [
+    { fill: 'rgba(255,59,92,', stroke: 'rgba(255,59,92,' },   // red
+    { fill: 'rgba(59,139,255,', stroke: 'rgba(59,139,255,' },  // blue
+    { fill: 'rgba(255,217,59,', stroke: 'rgba(255,217,59,' },  // yellow
+    { fill: 'rgba(184,80,255,', stroke: 'rgba(184,80,255,' },  // purple
+    { fill: 'rgba(59,255,139,', stroke: 'rgba(59,255,139,' },  // green
+  ];
+
+  let W, H, shapes;
+
+  function resize() {
+    W = cv.offsetWidth || innerWidth;
+    H = cv.offsetHeight || innerHeight;
+    cv.width = W;
+    cv.height = H;
+  }
+
+  // 创建一个形状对象，确保初始位置和速度产生无缝循环碰撞效果
+  function makeShape(i, total) {
+    const type = SHAPE_TYPES[i % SHAPE_TYPES.length];
+    const col = SHAPE_COLORS[i % SHAPE_COLORS.length];
+    const size = 48 + Math.random() * 72;  // 48~120px
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.25 + Math.random() * 0.45;
+    return {
+      type,
+      col,
+      size,
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.006,  // 慢速自转
+      // 磨砂玻璃效果参数
+      fillAlpha: 0.04 + Math.random() * 0.05,
+      strokeAlpha: 0.12 + Math.random() * 0.12,
+      blur: 2 + Math.random() * 4,
+    };
+  }
+
+  function initShapes() {
+    const count = 14;
+    shapes = [];
+    for (let i = 0; i < count; i++) shapes.push(makeShape(i, count));
+  }
+
+  // 绘制单个磨砂玻璃形状
+  function drawShape(s) {
+    cx.save();
+    cx.translate(s.x, s.y);
+    cx.rotate(s.rot);
+
+    const sz = s.size;
+    cx.shadowBlur = s.blur * 3;
+    cx.shadowColor = s.col.fill + '0.3)';
+
+    // 磨砂玻璃填充
+    cx.fillStyle = s.col.fill + s.fillAlpha + ')';
+    cx.strokeStyle = s.col.stroke + s.strokeAlpha + ')';
+    cx.lineWidth = 1.5;
+
+    cx.beginPath();
+    if (s.type === 'triangle') {
+      const r = sz * 0.55;
+      cx.moveTo(0, -r);
+      cx.lineTo(r * 0.866, r * 0.5);
+      cx.lineTo(-r * 0.866, r * 0.5);
+      cx.closePath();
+    } else if (s.type === 'square') {
+      const h = sz * 0.42;
+      const rad = h * 0.15;
+      cx.roundRect(-h, -h, h * 2, h * 2, rad);
+    } else {
+      cx.arc(0, 0, sz * 0.42, 0, Math.PI * 2);
+    }
+
+    cx.fill();
+
+    // 内层高光（模拟磨砂玻璃反光）
+    cx.save();
+    cx.globalAlpha = 0.06;
+    cx.strokeStyle = 'rgba(255,255,255,0.9)';
+    cx.lineWidth = 2;
+    cx.stroke();
+    cx.restore();
+
+    cx.stroke();
+    cx.restore();
+  }
+
+  // 简单AABB碰撞检测（用圆形近似）
+  function resolveCollisions() {
+    for (let i = 0; i < shapes.length; i++) {
+      for (let j = i + 1; j < shapes.length; j++) {
+        const a = shapes[i], b = shapes[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minDist = (a.size + b.size) * 0.45;
+        if (dist < minDist && dist > 0.01) {
+          // 弹性碰撞：交换速度分量
+          const nx = dx / dist, ny = dy / dist;
+          const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
+          const dot = dvx * nx + dvy * ny;
+          if (dot > 0) {
+            const impulse = dot * 0.7;
+            a.vx -= impulse * nx; a.vy -= impulse * ny;
+            b.vx += impulse * nx; b.vy += impulse * ny;
+          }
+          // 分离重叠
+          const overlap = (minDist - dist) * 0.5;
+          a.x -= nx * overlap; a.y -= ny * overlap;
+          b.x += nx * overlap; b.y += ny * overlap;
+        }
+      }
+    }
+  }
+
+  function update() {
+    for (const s of shapes) {
+      s.x += s.vx;
+      s.y += s.vy;
+      s.rot += s.rotV;
+      // 无缝边界回绕（带缓冲区保证形状完全消失再出现另一侧）
+      const buf = s.size;
+      if (s.x < -buf) s.x = W + buf;
+      else if (s.x > W + buf) s.x = -buf;
+      if (s.y < -buf) s.y = H + buf;
+      else if (s.y > H + buf) s.y = -buf;
+      // 速度限制
+      const spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+      if (spd > 0.8) { s.vx *= 0.8 / spd; s.vy *= 0.8 / spd; }
+      if (spd < 0.15) { const boost = 0.15 / spd; s.vx *= boost; s.vy *= boost; }
+    }
+    resolveCollisions();
+  }
+
+  let rafId = null;
+  let active = false;
+
+  function frame() {
+    if (!active) return;
+    cx.clearRect(0, 0, W, H);
+    update();
+    // 按大小从小到大绘制（堆叠效果：大形状在上）
+    const sorted = [...shapes].sort((a, b) => a.size - b.size);
+    for (const s of sorted) drawShape(s);
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function start() {
+    if (active) return;
+    active = true;
+    resize();
+    if (!shapes) initShapes();
+    frame();
+  }
+
+  function stop() {
+    active = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  // 监听屏幕切换：只在关卡选择页面激活动画
+  const titleScr = document.getElementById('scr-title');
+  const observer = new MutationObserver(() => {
+    if (!titleScr.classList.contains('hidden')) {
+      // 重新适配尺寸
+      resize();
+      if (!shapes) initShapes();
+      start();
+    } else {
+      stop();
+    }
+  });
+  observer.observe(titleScr, { attributes: true, attributeFilter: ['class'] });
+
+  window.addEventListener('resize', () => {
+    if (!titleScr.classList.contains('hidden')) { resize(); initShapes(); }
+  });
+})();
+
+// ===== 事件绑定 =====
+// 点击开屏的三个形状进入关卡选择
+document.getElementById('splash-btn').addEventListener('click',goToLevelSelect);
+// 空格键也可以跳过开屏
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'&&document.getElementById('scr-splash').classList.contains('hidden')===false){
+    e.preventDefault();goToLevelSelect();
+  }
+});
+</script>
+<!-- ========== 通关致谢滚动字幕 ========== -->
+<div id="credits-overlay">
+  <canvas id="credits-fx"></canvas>
+  <div class="credits-congrats" id="credits-congrats">
+    <div class="cg-final-rating" id="cg-final-rating"></div>
+    <div class="cg-level-ratings" id="cg-level-ratings"></div>
+  </div>
+  <div class="credits-scroll-wrap" id="credits-scroll-wrap" style="opacity:0">
+    <div class="credits-scroll" id="credits-scroll"></div>
+  </div>
+</div>
+<button class="credits-skip" id="credits-skip" onclick="skipCredits()">跳过</button>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// 通关致谢 — 电影片尾滚动字幕
+// ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// 🔑 修改致谢名单：
+//   testers 数组 —— 测试人员名单，直接增删即可
+//   creator —— 制作者署名
+//   specialThanks 数组 —— 特别感谢名单
+// ═══════════════════════════════════════════════════════════
+const CREDITS_DATA = {
+  creator: '青末',
+  testers: [
+    '测试员A',
+    '测试员B',
+    '测试员C',
+    '测试员D',
+    '测试员E',
+    '测试员F',
+    '测试员G',
+    '测试员H'
+  ],
+  specialThanks: ['Claude', 'ChatGPT']
+};
+
+function buildCreditsContent() {
+  const el = document.getElementById('credits-scroll');
+  let html = '';
+  // 制作
+  html += `<div class="cr-section"><div class="cr-role">制作</div>`;
+  html += `<div class="cr-name" style="font-size:28px">${CREDITS_DATA.creator}</div></div>`;
+  // 分割线
+  html += `<div class="cr-divider"></div>`;
+  // 致谢测试人员
+  html += `<div class="cr-section"><div class="cr-thanks">测试人员</div>`;
+  CREDITS_DATA.testers.forEach(n => { html += `<div class="cr-thanks-name">${n}</div>`; });
+  html += `</div>`;
+  // 分割线
+  html += `<div class="cr-divider"></div>`;
+  // 特别感谢
+  html += `<div class="cr-section"><div class="cr-thanks">特别感谢</div>`;
+  CREDITS_DATA.specialThanks.forEach(n => { html += `<div class="cr-name">${n}</div>`; });
+  html += `</div>`;
+  // 最终 logo
+  html += `<div class="cr-final"><div class="cr-divider"></div><div class="cr-logo">COLOR CODE</div></div>`;
+  el.innerHTML = html;
+}
+
+// 构建恭喜页面的评级汇总（纯图形，无文字）
+function buildCongratsSummary() {
+  // 计算总评级：取所有关卡的最低评级
+  let minRating = 2;
+  for (let i = 0; i < LEVELS.length; i++) {
+    const r = levelRatings[i] != null ? levelRatings[i] : 0;
+    if (r < minRating) minRating = r;
+  }
+  // 总评级图标
+  const frEl = document.getElementById('cg-final-rating');
+  const types = ['circle','square','triangle'];
+  const cols = [CHEX.red, CHEX.blue, CHEX.green];
+  frEl.innerHTML = '';
+  types.forEach((tp, i) => {
+    const earned = i <= minRating;
+    const svg = ratingSvg(tp, earned ? cols[i] : '#444', .85);
+    const wrap = document.createElement('span');
+    wrap.innerHTML = svg;
+    const svgEl = wrap.querySelector('svg');
+    svgEl.setAttribute('width','56');
+    svgEl.setAttribute('height','56');
+    svgEl.classList.add(earned ? 'earned' : 'not-earned');
+    frEl.appendChild(svgEl);
+    if (earned) setTimeout(() => { svgEl.style.transform = 'scale(1.1)'; }, i * 300 + 400);
+  });
+
+  // 每关评级小图
+  const lvEl = document.getElementById('cg-level-ratings');
+  lvEl.innerHTML = '';
+  for (let i = 0; i < LEVELS.length; i++) {
+    const r = levelRatings[i] != null ? levelRatings[i] : 0;
+    const item = document.createElement('div');
+    item.className = 'cg-lv-item';
+    let shapesHtml = '';
+    types.forEach((tp, ti) => {
+      const earned = ti <= r;
+      const s = ratingSvg(tp, earned ? cols[ti] : '#333', earned ? .85 : .3);
+      shapesHtml += `<span class="${earned ? '' : 'dim'}">${s}</span>`;
+    });
+    item.innerHTML = `<div class="cg-lv-shapes">${shapesHtml}</div>`;
+    lvEl.appendChild(item);
+    // 依次淡入
+    item.style.opacity = '0'; item.style.transform = 'translateY(10px)';
+    item.style.transition = `all .4s ease ${i * 120 + 600}ms`;
+    setTimeout(() => { item.style.opacity = '1'; item.style.transform = 'translateY(0)'; }, 50);
+  }
+}
+
+let creditsRaf = null;
+let creditsActive = false;
+
+function playCredits() {
+  creditsActive = true;
+  const overlay = document.getElementById('credits-overlay');
+  const congrats = document.getElementById('credits-congrats');
+  const scrollWrap = document.getElementById('credits-scroll-wrap');
+  const scrollEl = document.getElementById('credits-scroll');
+  const skipBtn = document.getElementById('credits-skip');
+
+  buildCreditsContent();
+  buildCongratsSummary();
+  overlay.classList.add('active');
+  skipBtn.classList.add('show');
+
+  // 阶段1：评级汇总 + 烟花粒子
+  congrats.classList.add('show');
+  creditsFireworks();
+
+  // 阶段2：5秒后汇总淡出，字幕开始滚动
+  setTimeout(() => {
+    if (!creditsActive) return;
+    congrats.classList.remove('show');
+    setTimeout(() => {
+      if (!creditsActive) return;
+      scrollWrap.style.opacity = '1';
+      scrollWrap.style.transition = 'opacity 1s';
+      scrollEl.style.transform = `translateX(-50%) translateY(0)`;
+      let y = window.innerHeight;
+      const speed = 0.6;
+      function scrollFrame() {
+        if (!creditsActive) return;
+        y -= speed;
+        scrollEl.style.transform = `translateX(-50%) translateY(${y}px)`;
+        if (y > -scrollEl.scrollHeight - 60) {
+          creditsRaf = requestAnimationFrame(scrollFrame);
+        } else {
+          setTimeout(() => { if(creditsActive) skipCredits(); }, 2000);
+        }
+      }
+      creditsRaf = requestAnimationFrame(scrollFrame);
+    }, 800);
+  }, 5000);
+}
+
+function skipCredits() {
+  creditsActive = false;
+  if (creditsRaf) { cancelAnimationFrame(creditsRaf); creditsRaf = null; }
+  const overlay = document.getElementById('credits-overlay');
+  const congrats = document.getElementById('credits-congrats');
+  const scrollWrap = document.getElementById('credits-scroll-wrap');
+  const skipBtn = document.getElementById('credits-skip');
+  overlay.classList.remove('active');
+  congrats.classList.remove('show');
+  scrollWrap.style.opacity = '0';
+  skipBtn.classList.remove('show');
+  // 清理烟花 canvas
+  const fxCv = document.getElementById('credits-fx');
+  const fxCx = fxCv.getContext('2d');
+  fxCx.clearRect(0, 0, fxCv.width, fxCv.height);
+  // 回到主菜单
+  toMenu();
+}
+
+// 恭喜阶段的烟花粒子
+function creditsFireworks() {
+  const cv = document.getElementById('credits-fx');
+  const cx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const cols = ['#3bff8b','#3b8bff','#b850ff','#ff3b5c','#ffd93b','#ff8c3b','#ffffff'];
+  const bursts = [];
+  // 初始3波烟花
+  for (let w = 0; w < 3; w++) {
+    setTimeout(() => {
+      if (!creditsActive) return;
+      const bx = cv.width * (0.25 + Math.random() * 0.5);
+      const by = cv.height * (0.25 + Math.random() * 0.3);
+      for (let i = 0; i < 40; i++) {
+        const ang = (i / 40) * Math.PI * 2 + Math.random() * 0.3;
+        const spd = 2 + Math.random() * 5;
+        bursts.push({ x: bx, y: by, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1,
+          r: 1.5 + Math.random() * 2.5, c: cols[Math.floor(Math.random() * cols.length)],
+          life: 1, d: 0.008 + Math.random() * 0.012 });
+      }
+    }, w * 600);
+  }
+  (function fwLoop() {
+    if (!creditsActive) { cx.clearRect(0, 0, cv.width, cv.height); return; }
+    cx.clearRect(0, 0, cv.width, cv.height);
+    let alive = false;
+    for (const p of bursts) {
+      if (p.life <= 0) continue;
+      alive = true;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= p.d;
+      cx.globalAlpha = p.life * 0.8; cx.fillStyle = p.c;
+      cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, Math.PI * 2); cx.fill();
+      cx.globalAlpha = p.life * 0.15; cx.beginPath(); cx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2); cx.fill();
+    }
+    cx.globalAlpha = 1;
+    if (alive || bursts.length === 0) requestAnimationFrame(fwLoop);
+  })();
+}
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// 🔊 COLOR CODE — 音频系统（Web Audio API 合成，无需外部文件）
+// ═══════════════════════════════════════════════════════════
+// 🔑 【替换音效】请阅读文件末尾的「如何替换音效/背景音乐」说明
+// ═══════════════════════════════════════════════════════════
+const AudioSys = (function () {
+  let ctx = null;
+  let bgGain = null;
+  let sfxGain = null;
+  let reverbNode = null;   // 全局混响，让所有音效更有空间感
+  let bgSource = null;
+  let bgBuffer = null;
+  let bgCustom = false;
+  let bgPlaying = false;
+  let muted = false;
+
+  // ── 初始化 ──
+  function init() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // 轻度混响（模拟安静房间）
+    reverbNode = _makeReverb(1.8, 0.25);
+
+    bgGain  = ctx.createGain(); bgGain.gain.value  = 0.42;
+    sfxGain = ctx.createGain(); sfxGain.gain.value = 0.38;
+
+    bgGain.connect(ctx.destination);
+    sfxGain.connect(reverbNode);
+    reverbNode.connect(ctx.destination);
+    // 干声也直接出（混响只是装饰）
+    sfxGain.connect(ctx.destination);
+  }
+
+  // 用卷积混响模拟小房间
+  function _makeReverb(duration, wet) {
+    const len = Math.floor(ctx.sampleRate * duration);
+    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+    }
+    const conv = ctx.createConvolver();
+    conv.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = wet;
+    conv.connect(g);
+    return g; // sfxGain → conv → g → destination
+  }
+
+  function now() { return ctx.currentTime; }
+
+  // ── 核心乐音发生器：钢琴风 Attack-Decay-Sustain-Release ──
+  // attack/decay/sustain/release 单位秒，sustain 是 0~1 音量比例
+  function tone(freq, vol, t, attack, decay, sustain, release, dest) {
+    const o  = ctx.createOscillator();
+    const o2 = ctx.createOscillator(); // 轻微泛音层（八度上方，极低音量）
+    const g  = ctx.createGain();
+    const g2 = ctx.createGain();
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.5;
+
+    o.type  = 'sine';    o.frequency.value  = freq;
+    o2.type = 'sine';    o2.frequency.value = freq * 2;
+
+    // 主声 ADSR
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
+    g.gain.linearRampToValueAtTime(vol * sustain, t + attack + decay);
+    g.gain.setValueAtTime(vol * sustain, t + attack + decay);
+    g.gain.linearRampToValueAtTime(0.0001, t + attack + decay + release);
+
+    // 泛音层
+    g2.gain.setValueAtTime(vol * 0.06, t);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay * 0.6);
+
+    const out = dest || sfxGain;
+    o.connect(lp); lp.connect(g); g.connect(out);
+    o2.connect(g2); g2.connect(out);
+
+    const stop = t + attack + decay + release + 0.05;
+    o.start(t);  o.stop(stop);
+    o2.start(t); o2.stop(t + attack + decay * 0.6 + 0.05);
+  }
+
+  // ── 软 Pad 音（背景和弦用，长淡入淡出）──
+  function pad(freq, vol, t, fadeIn, hold, fadeOut, dest) {
+    const o  = ctx.createOscillator();
+    const o2 = ctx.createOscillator();
+    const g  = ctx.createGain();
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.3;
+
+    o.type  = 'sine';     o.frequency.value  = freq;
+    o2.type = 'triangle'; o2.frequency.value = freq * 1.005; // 轻微失谐产生温暖感
+
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + fadeIn);
+    g.gain.setValueAtTime(vol, t + fadeIn + hold);
+    g.gain.linearRampToValueAtTime(0, t + fadeIn + hold + fadeOut);
+
+    const out = dest || bgGain;
+    o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(out);
+    const stop = t + fadeIn + hold + fadeOut + 0.1;
+    o.start(t); o.stop(stop);
+    o2.start(t); o2.stop(stop);
+  }
+
+  // ══════════════════════════════════════════════════
+  // 音效库 — 全部采用柔和 ADSR，无噪声无方波
+  // ══════════════════════════════════════════════════
+
+  // 放置模块 — 柔和的拨弦感，无起始突兀
+  function sfxPlace() {
+    if (!ctx || muted) return;
+    const t = now();
+
+    // 用一个独立的精细 envelope，完全避免 setValueAtTime 在 t 时刻的瞬间跳变
+    function placeLayer(freq, peakVol, attackTime, decayTime, releaseTime) {
+      const o1 = ctx.createOscillator();
+      const o2 = ctx.createOscillator(); // 轻微失谐，产生温暖拍频
+      const g  = ctx.createGain();
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.4;
+
+      o1.type = 'sine'; o1.frequency.value = freq;
+      o2.type = 'sine'; o2.frequency.value = freq * 1.003; // 0.3% 失谐
+
+      // 从极小值指数上升（避免从0的跳变），再指数衰减
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peakVol, t + attackTime);
+      g.gain.exponentialRampToValueAtTime(peakVol * 0.35, t + attackTime + decayTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + attackTime + decayTime + releaseTime);
+
+      o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(sfxGain);
+      const stop = t + attackTime + decayTime + releaseTime + 0.05;
+      o1.start(t); o1.stop(stop);
+      o2.start(t); o2.stop(stop);
+    }
+
+    placeLayer(392,  0.028, 0.018, 0.12, 0.55); // G4 主体
+    placeLayer(784,  0.011, 0.022, 0.08, 0.38); // G5 八度泛音
+    placeLayer(196,  0.015, 0.015, 0.18, 0.60); // G3 低频共鸣
+  }
+
+  // 通过检查点 — 晶莹水滴音，多点匹配时音高依次升高叠加
+  function sfxMatch(count) {
+    if (!ctx || muted) return;
+    const t = now();
+    count = count || 1;
+    const scale = [659, 784, 1047, 1319]; // E5 G5 C6 E6
+    for (let i = 0; i < Math.min(count, scale.length); i++) {
+      const dt = i * 0.08;
+      tone(scale[i],    0.082, t+dt, 0.006, 0.05, 0.12, 0.70);
+      tone(scale[i]*2,  0.020, t+dt, 0.004, 0.03, 0.0,  0.28);
+    }
+  }
+  function sfxRotate() {
+    if (!ctx || muted) return;
+    const t = now();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 3000;
+    o.type = 'sine';
+    o.frequency.setValueAtTime(360, t);
+    o.frequency.linearRampToValueAtTime(540, t + 0.28);
+    g.gain.setValueAtTime(0.0, t);
+    g.gain.linearRampToValueAtTime(0.038, t + 0.025); // 慢攻击，不突然
+    g.gain.linearRampToValueAtTime(0.018, t + 0.18);
+    g.gain.linearRampToValueAtTime(0.0001, t + 0.50);
+    o.connect(lp); lp.connect(g); g.connect(sfxGain);
+    o.start(t); o.stop(t + 0.52);
+    tone(720, 0.010, t + 0.08, 0.012, 0.10, 0.0, 0.32);
+  }
+
+  // 移除模块 — 轻柔下滑消散
+  function sfxRemove() {
+    if (!ctx || muted) return;
+    const t = now();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2600;
+    o.type = 'sine';
+    o.frequency.setValueAtTime(480, t);
+    o.frequency.linearRampToValueAtTime(240, t + 0.32);
+    g.gain.setValueAtTime(0.0, t);
+    g.gain.linearRampToValueAtTime(0.036, t + 0.018);
+    g.gain.linearRampToValueAtTime(0.0001, t + 0.42);
+    o.connect(lp); lp.connect(g); g.connect(sfxGain);
+    o.start(t); o.stop(t + 0.44);
+  }
+
+  // 错误 — 两音极轻的半音摩擦，更像轻声提醒
+  function sfxError() {
+    if (!ctx || muted) return;
+    const t = now();
+    tone(294, 0.032, t,       0.018, 0.16, 0.15, 0.55);
+    tone(277, 0.024, t+0.07,  0.018, 0.14, 0.10, 0.50);
+  }
+
+  // 通过检查点 — 见上方 sfxMatch 定义（已含 count 参数）
+
+  // 关卡胜利 — 七音琶音，每音音量渐强，尾音最响最长
+  function sfxVictory() {
+    if (!ctx || muted) return;
+    const t = now();
+    [523, 659, 784, 1047, 784, 1047, 1319].forEach((freq, i) => {
+      const vol = 0.028 + i * 0.006; // 渐强
+      tone(freq, Math.min(vol, 0.058), t + i * 0.16, 0.012, 0.11, 0.15, 1.3);
+    });
+  }
+
+  // 通关 credits — 十音长尾分解和弦，像远处教堂钟声
+  function sfxCredits() {
+    if (!ctx || muted) return;
+    const t = now();
+    [261, 329, 392, 523, 659, 784, 1047, 1319, 1047, 784].forEach((freq, i) => {
+      tone(freq, 0.038, t + i * 0.22, 0.020, 0.14, 0.20, 2.0);
+    });
+  }
+
+  // 按钮点击 — 几乎感知不到，仅有一点存在感
+  function sfxClick() {
+    if (!ctx || muted) return;
+    const t = now();
+    tone(1046, 0.022, t,       0.006, 0.055, 0.0, 0.28);
+    tone(1318, 0.010, t+0.020, 0.004, 0.040, 0.0, 0.20);
+  }
+
+  // 重置棋盘 — 轻柔四音下行，像翻开新页
+  function sfxReset() {
+    if (!ctx || muted) return;
+    const t = now();
+    [523, 440, 349, 261].forEach((freq, i) => {
+      tone(freq, 0.030, t + i * 0.10, 0.010, 0.09, 0.06, 0.55);
+    });
+  }
+
+  // 关卡开始 — 三音上行，宁静而不张扬
+  function sfxStart() {
+    if (!ctx || muted) return;
+    const t = now();
+    tone(392, 0.032, t,      0.012, 0.11, 0.06, 0.70);
+    tone(523, 0.032, t+0.18, 0.012, 0.11, 0.06, 0.70);
+    tone(659, 0.040, t+0.36, 0.012, 0.13, 0.10, 0.95);
+  }
+
+  // 羁绊触发 — 纯五度轻声共鸣，像弦乐泛音
+  function sfxBond() {
+    if (!ctx || muted) return;
+    const t = now();
+    tone(523, 0.030, t,       0.020, 0.14, 0.18, 1.10);
+    tone(784, 0.022, t+0.030, 0.020, 0.14, 0.14, 1.10);
+    tone(392, 0.016, t,       0.025, 0.20, 0.10, 1.00);
+  }
+
+  // ══════════════════════════════════════════════════
+  // 背景音乐 — 舒缓的钢琴氛围 + 温柔 Pad
+  // C 大调，慢速琶音，呼吸感强
+  // ══════════════════════════════════════════════════
+  function startBgMusic() {
+    if (!ctx || bgPlaying) return;
+    if (bgCustom && bgBuffer) { _playBgBuffer(bgBuffer); return; }
+    _playSynthBg();
+  }
+
+  function _playSynthBg() {
+    bgPlaying = true;
+    const LOOP = 24; // 24秒循环，足够舒展
+
+    // C 大调七和弦进行：Cmaj7 → Am7 → Fmaj7 → G7
+    // 每个和弦 6 秒，音符频率（Hz）
+    const CHORDS = [
+      // Cmaj7: C3 E3 G3 B3  C4 E4 G4
+      [130.8, 164.8, 196, 246.9, 261.6, 329.6, 392],
+      // Am7:   A2 C3 E3 G3  A3 C4 E4
+      [110,   130.8, 164.8, 196, 220,  261.6, 329.6],
+      // Fmaj7: F2 A2 C3 E3  F3 A3 C4
+      [87.3,  110,   130.8, 164.8,174.6,220,   261.6],
+      // G7:    G2 B2 D3 F3  G3 B3 D4
+      [98,    123.5, 146.8, 174.6,196,  246.9, 293.7],
+    ];
+
+    // 钢琴音符时间表（相对于循环开始，单位秒）
+    // 每小节6秒，每拍1.5秒，轻柔琶音上行再下行
+    function makePianoNotes(chordNotes, startT) {
+      const arpUp   = [0, 1, 2, 3, 4, 5, 6];       // 上行
+      const arpDown = [6, 5, 4, 3, 2, 1, 0];       // 下行
+      const spacing = 0.38; // 每音间隔
+      [...arpUp, ...arpDown].forEach((ni, step) => {
+        const freq = chordNotes[ni];
+        const dt   = step * spacing;
+        if (startT + dt >= startT + 6) return; // 不超出本小节
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 2800;
+        o.type = 'sine'; o.frequency.value = freq;
+        // 模拟钢琴：快攻击，慢衰减
+        const at = startT + dt;
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(0.032, at + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.012, at + 0.5);
+        g.gain.linearRampToValueAtTime(0.0001, at + 1.6);
+        o.connect(lp); lp.connect(g); g.connect(bgGain);
+        o.start(at); o.stop(at + 1.65);
+      });
+    }
+
+    function scheduleLoop(startT) {
+      if (!bgPlaying) return;
+
+      // 4个和弦 Pad（慢淡入淡出，填满空间）
+      CHORDS.forEach((chord, ci) => {
+        const cs = startT + ci * 6;
+        // 低音根音 pad
+        pad(chord[0], 0.016, cs, 1.2, 3.6, 1.2);
+        pad(chord[1], 0.012, cs, 1.4, 3.4, 1.2);
+        pad(chord[2], 0.010, cs, 1.6, 3.2, 1.2);
+        // 高音 pad（更轻）
+        pad(chord[4], 0.008, cs + 0.5, 2.0, 2.5, 1.0);
+      });
+
+      // 钢琴琶音
+      CHORDS.forEach((chord, ci) => {
+        makePianoNotes(chord, startT + ci * 6);
+      });
+
+      // 极轻的高音点缀（像钟声，随机位置）
+      const bellTimes  = [2.5, 7.2, 11.8, 16.4, 20.1];
+      const bellFreqs  = [1046.5, 1318.5, 1568, 1046.5, 1244.5]; // C6 E6 G6 C6 D6
+      bellTimes.forEach((bt, bi) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = bellFreqs[bi];
+        const at = startT + bt;
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(0.018, at + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 2.2);
+        o.connect(g); g.connect(bgGain);
+        o.start(at); o.stop(at + 2.3);
+      });
+
+      bgSource = { _timer: null, stop() { bgPlaying = false; } };
+      bgSource._timer = setTimeout(() => {
+        if (bgPlaying && !muted) scheduleLoop(ctx.currentTime + 0.05);
+      }, (LOOP - 0.2) * 1000);
+    }
+
+    scheduleLoop(ctx.currentTime + 0.2);
+  }
+
+  function stopBgMusic() {
+    bgPlaying = false;
+    if (bgSource) {
+      clearTimeout(bgSource._timer);
+      try { if (bgSource.stop) bgSource.stop(); } catch(e) {}
+      bgSource = null;
+    }
+  }
+
+  async function loadBgMusic(url) {
+    try {
+      init();
+      const resp = await fetch(url);
+      const arrBuf = await resp.arrayBuffer();
+      bgBuffer = await ctx.decodeAudioData(arrBuf);
+      bgCustom = true;
+      if (bgPlaying) { stopBgMusic(); _playBgBuffer(bgBuffer); }
+    } catch (e) { console.warn('BGM load failed, using synth:', e); }
+  }
+
+  function _playBgBuffer(buffer) {
+    bgPlaying = true;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer; src.loop = true;
+    src.connect(bgGain); src.start(0);
+    bgSource = src;
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    if (muted) {
+      bgGain.gain.linearRampToValueAtTime(0,    ctx.currentTime + 0.8);
+      sfxGain.gain.linearRampToValueAtTime(0,   ctx.currentTime + 0.3);
+    } else {
+      bgGain.gain.linearRampToValueAtTime(0.42, ctx.currentTime + 0.8);
+      sfxGain.gain.linearRampToValueAtTime(0.38,ctx.currentTime + 0.2);
+    }
+    return muted;
+  }
+
+  function playBuffer(buffer, vol) {
+    if (!ctx || muted) return;
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    src.buffer = buffer; g.gain.value = vol || 1;
+    src.connect(g); g.connect(sfxGain); src.start(0);
+  }
+
+  return {
+    init, startBgMusic, stopBgMusic, loadBgMusic, toggleMute, playBuffer,
+    sfxPlace, sfxRotate, sfxRemove, sfxError, sfxMatch,
+    sfxVictory, sfxCredits, sfxClick, sfxReset, sfxStart, sfxBond,
+    get muted() { return muted; },
+    get ctx() { return ctx; }
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 音频系统接入 — 在首次用户交互时初始化，并挂载到游戏事件
+// ═══════════════════════════════════════════════════════════
+
+// 首次点击/触摸时初始化 AudioContext 并启动背景音乐
+function _audioBootstrap() {
+  AudioSys.init();
+  AudioSys.startBgMusic();
+  document.removeEventListener('click', _audioBootstrap);
+  document.removeEventListener('touchstart', _audioBootstrap);
+}
+document.addEventListener('click', _audioBootstrap, { once: true });
+document.addEventListener('touchstart', _audioBootstrap, { once: true, passive: true });
+
+// ── 静音按钮（右下角悬浮）──
+(function(){
+  const btn = document.createElement('button');
+  btn.id = 'mute-btn';
+  btn.innerHTML = '🔊';
+  btn.title = '静音/取消静音';
+  btn.style.cssText = `
+    position:fixed;bottom:24px;left:24px;z-index:600;
+    width:36px;height:36px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.15);
+    background:rgba(255,255,255,.06);
+    color:#fff;font-size:14px;cursor:pointer;
+    backdrop-filter:blur(8px);transition:all .2s;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;line-height:1;
+  `;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const m = AudioSys.toggleMute();
+    btn.innerHTML = m ? '🔇' : '🔊';
+    btn.style.opacity = m ? '0.5' : '1';
+  });
+  document.body.appendChild(btn);
+})();
+
+// ── 覆盖游戏函数，注入音效调用 ──
+// 保存原始函数引用
+const _origPlace = place;
+const _origRotate = rotate;
+const _origRemoveMod = removeMod;
+const _origResetBoard = resetBoard;
+const _origStartLevel = startLevel;
+const _origToMenu = toMenu;
+const _origNextLv = nextLv;
+const _origVictory = victory;
+const _origFlash = flash;
+const _origSkipCredits = skipCredits;
+
+// 放置模块
+place = function(r, c, shape, color) {
+  AudioSys.init();
+  const before = G.grid[r] && G.grid[r][c];
+  const cnt = G.inventory[shape]?.[color] || 0;
+  if (before !== null && before !== undefined) { AudioSys.sfxError(); }
+  else if (cnt <= 0) { AudioSys.sfxError(); }
+  else { AudioSys.sfxPlace(); }
+  _origPlace(r, c, shape, color);
+};
+
+// 旋转模块
+rotate = function(r, c) {
+  AudioSys.init();
+  if (G.grid[r] && G.grid[r][c]) AudioSys.sfxRotate();
+  _origRotate(r, c);
+};
+
+// 移除模块
+removeMod = function(r, c) {
+  AudioSys.init();
+  if (G.grid[r] && G.grid[r][c]) AudioSys.sfxRemove();
+  _origRemoveMod(r, c);
+};
+
+// 重置棋盘
+resetBoard = function() {
+  AudioSys.init();
+  AudioSys.sfxReset();
+  _origResetBoard();
+};
+
+// 开始关卡
+startLevel = function(idx) {
+  AudioSys.init();
+  AudioSys.sfxStart();
+  _origStartLevel(idx);
+};
+
+// 返回菜单
+toMenu = function() {
+  AudioSys.init();
+  AudioSys.sfxClick();
+  _origToMenu();
+};
+
+// 下一关
+nextLv = function() {
+  AudioSys.init();
+  AudioSys.sfxClick();
+  _origNextLv();
+};
+
+// 胜利处理（检测羁绊音效 + 胜利音）
+victory = function() {
+  AudioSys.init();
+  if (G.bonds && G.bonds.length > 0) AudioSys.sfxBond();
+  setTimeout(() => {
+    if (G.level === LEVELS.length - 1) AudioSys.sfxCredits();
+    else AudioSys.sfxVictory();
+  }, G.keyPoints.length * 150 + 200);
+  _origVictory();
+};
+
+// 格子反馈闪烁
+flash = function(r, c, cls) {
+  _origFlash(r, c, cls);
+};
+
+// 跳过字幕
+skipCredits = function() {
+  AudioSys.init();
+  AudioSys.sfxClick();
+  _origSkipCredits();
+};
+
+// 开屏/关卡选择卡片点击
+document.getElementById('splash-btn').addEventListener('mouseenter', () => {
+  if (AudioSys.ctx) AudioSys.sfxClick();
+});
+
+// 关卡卡片 hover 音效（动态绑定，buildCards 后每次重绑）
+const _origBuildCards = buildCards;
+buildCards = function() {
+  _origBuildCards();
+  document.querySelectorAll('.card:not(.locked)').forEach(card => {
+    card.addEventListener('mouseenter', () => {
+      if (AudioSys.ctx) AudioSys.sfxClick();
+    });
+  });
+};
+
+// checkWin 里 propagateColors 之后有 flash('fb-ok') 的路径，
+// 但关键点匹配成功的主要反馈在 sfxMatch 里已覆盖
+// 额外：propagateColors 完成后如有新羁绊触发，播放羁绊音
+const _origPropagateColors = propagateColors;
+propagateColors = function() {
+  const bondsBefore = (G.bonds || []).length;
+  _origPropagateColors();
+  const bondsAfter = (G.bonds || []).length;
+  if (bondsAfter > bondsBefore && AudioSys.ctx && !G.won) AudioSys.sfxBond();
+};
+
+</script>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"75124c326cb447fe934cde04713ae013","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"75124c326cb447fe934cde04713ae013","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
