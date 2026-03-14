@@ -804,7 +804,7 @@ function buildCards(){
     // 当前逻辑：不在 unlockedLevels 集合里的关卡会被锁定
     // ▶ 要去掉锁定：把下面这行改为 const locked = false;
     // ▶ 要恢复锁定：改回 const locked = !unlockedLevels.has(i);
-    const locked = false;
+    const locked = !unlockedLevels.has(i);
     d.className='card'+(locked?' locked':'');
     if(!locked) d.onclick=()=>startLevel(i);  // 点击进入关卡
     const diff=i<2?'Beginner':i<4?'Intermediate':i<6?'Advanced':'Master';
