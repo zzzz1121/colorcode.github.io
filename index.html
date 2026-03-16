@@ -2097,8 +2097,6 @@ function playCutscene(onDone){
 
   // 点击或触摸跳过过场动画
   const skip=()=>{if(done)return;done=true;cancelAnimationFrame(raf);cx.clearRect(0,0,W,H);onDone();};
-  cv.addEventListener('click',skip,{once:true});
-  cv.addEventListener('touchstart',skip,{once:true,passive:true});
   raf=requestAnimationFrame(frame);
 }
 
